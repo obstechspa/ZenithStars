@@ -1,0 +1,15 @@
+# Catálogo fuente descargado (119 MB) - se regenera con crossmatch.py
+hygdata_v3.csv
+
+# Catálogo BSC intermedio (ya reemplazado por catalog_full.json)
+catalog.json
+
+# Excel original (binario pesado)
+ZenithStars.xlsx
+
+# Carpeta de memoria de Claude
+.claude/
+
+# Python
+__pycache__/
+*.pyc

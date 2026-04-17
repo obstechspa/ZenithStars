@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ZenithStars</title>
+  <style>
+    :root {
+      --bg: #0a0a14;
+      --panel: #10101e;
+      --border: #1e2040;
+      --accent: #5b7fff;
+      --accent2: #a78bfa;
+      --text: #d0d4f0;
+      --muted: #6b7280;
+      --star-gold: #fbbf24;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      min-height: 100vh;
+    }
+
+    header {
+      padding: 1.5rem 2rem;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+    header h1 { font-size: 1.4rem; font-weight: 600; letter-spacing: 0.04em; }
+    header h1 span { color: var(--accent2); }
+    header .subtitle { font-size: 0.8rem; color: var(--muted); margin-top: 0.15rem; }
+
+    .container { max-width: 1000px; margin: 0 auto; padding: 2rem 1.5rem; }
+
+    .input-panel {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.5rem;
+      margin-bottom: 1.75rem;
+    }
+    .input-panel h2 { font-size: 0.9rem; color: var(--muted); text-transform: uppercase;
+      letter-spacing: 0.08em; margin-bottom: 1rem; }
+
+    .inputs-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 1rem;
+      align-items: end;
+    }
+    .field label { display: block; font-size: 0.78rem; color: var(--muted);
+      margin-bottom: 0.4rem; letter-spacing: 0.03em; }
+    .field input {
+      width: 100%;
+      background: #0d0d1c;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.55rem 0.75rem;
+      color: var(--text);
+      font-size: 0.95rem;
+    }
+    .field input:focus { outline: none; border-color: var(--accent); }
+
+    .filter-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      margin-top: 1rem;
+      align-items: end;
+    }
+    .filter-row .field { flex: 1; min-width: 130px; }
+    .filter-row select {
+      width: 100%;
+      background: #0d0d1c;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.55rem 0.75rem;
+      color: var(--text);
+      font-size: 0.95rem;
+    }
+    .filter-row select:focus { outline: none; border-color: var(--accent); }
+
+    .btn-row { display: flex; gap: 0.75rem; margin-top: 1.25rem; flex-wrap: wrap; align-items: center; }
+    button {
+      padding: 0.6rem 1.4rem;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+      font-size: 0.9rem;
+      font-weight: 600;
+      transition: opacity 0.15s;
+    }
+    button:disabled { opacity: 0.45; cursor: not-allowed; }
+    button:not(:disabled):hover { opacity: 0.85; }
+    .btn-primary { background: var(--accent); color: #fff; }
+    .btn-secondary { background: var(--border); color: var(--text); }
+
+    .sidereal-info {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      margin-bottom: 1.5rem;
+    }
+    .sidereal-chip {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.45rem 1rem;
+      font-size: 0.8rem;
+    }
+    .sidereal-chip span { color: var(--accent2); font-weight: 600; }
+
+    .results-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.75rem;
+    }
+    .results-header h2 { font-size: 1rem; font-weight: 600; }
+    .results-header .count { font-size: 0.8rem; color: var(--muted); }
+
+    .table-wrap { overflow-x: auto; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.88rem;
+    }
+    thead th {
+      background: var(--panel);
+      border-bottom: 1px solid var(--border);
+      padding: 0.65rem 0.9rem;
+      text-align: left;
+      color: var(--muted);
+      font-weight: 600;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      white-space: nowrap;
+    }
+    tbody tr { border-bottom: 1px solid var(--border); }
+    tbody tr:hover { background: var(--panel); }
+    tbody td { padding: 0.6rem 0.9rem; vertical-align: middle; }
+
+    .star-name { font-weight: 600; color: #fff; }
+    .star-ids { font-size: 0.75rem; color: var(--muted); margin-top: 0.1rem; }
+
+    .vmag-badge {
+      display: inline-block;
+      padding: 0.2rem 0.55rem;
+      border-radius: 99px;
+      font-weight: 700;
+      font-size: 0.82rem;
+      background: #1a1a2e;
+      border: 1px solid;
+    }
+    .alt-bar-wrap { display: flex; align-items: center; gap: 0.6rem; min-width: 120px; }
+    .alt-bar { flex: 1; height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; }
+    .alt-bar-fill { height: 100%; border-radius: 3px; background: var(--accent); }
+    .alt-val { font-size: 0.85rem; white-space: nowrap; font-weight: 600; }
+    .diff-val { color: var(--muted); font-size: 0.85rem; }
+    .diff-best { color: var(--star-gold); font-weight: 700; }
+
+    .empty-state { text-align: center; padding: 3rem; color: var(--muted); }
+    .empty-state .icon { font-size: 2.5rem; margin-bottom: 0.75rem; }
+
+    #refresh-countdown { font-size: 0.75rem; color: var(--muted); }
+    #catalog-status { font-size: 0.78rem; color: var(--muted); }
+    #catalog-status.error { color: #f87171; }
+    .chip-sub { font-size: 0.72rem; color: var(--accent); margin-top: 0.15rem; }
+
+    .calc-time-panel {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1rem 1.5rem;
+      margin-bottom: 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 1.5rem;
+      flex-wrap: wrap;
+    }
+    .calc-time-left { min-width: 160px; }
+    .calc-time-label {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-bottom: 0.3rem;
+    }
+    .calc-time-date {
+      font-size: 0.88rem;
+      color: var(--text);
+      font-weight: 500;
+    }
+    .calc-time-hour {
+      font-size: 1.6rem;
+      font-weight: 700;
+      color: var(--accent2);
+      letter-spacing: 0.04em;
+      line-height: 1.2;
+    }
+    .calc-time-divider {
+      width: 1px;
+      height: 48px;
+      background: var(--border);
+      flex-shrink: 0;
+    }
+    .sidereal-info {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      flex: 1;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>Zenith<span>Stars</span></h1>
+    <div class="subtitle">Estrellas cercanas al cenit &mdash; Catálogo HYG + BSC (mag 0&ndash;9)</div>
+  </div>
+</header>
+
+<div class="container">
+
+  <div class="input-panel">
+    <h2>Ubicacion del Observador</h2>
+    <div class="inputs-row">
+      <div class="field">
+        <label>Latitud (°)</label>
+        <input type="number" id="lat" value="-30.47064" step="0.00001" min="-90" max="90" />
+      </div>
+      <div class="field">
+        <label>Longitud (°)</label>
+        <input type="number" id="lon" value="-70.76498" step="0.00001" min="-180" max="180" />
+      </div>
+      <div class="field">
+        <label>Radio al cenit (°)</label>
+        <input type="number" id="radius" value="30" step="1" min="1" max="89" />
+      </div>
+    </div>
+
+    <div class="filter-row">
+      <div class="field">
+        <label>Vmag mínima</label>
+        <input type="number" id="magMin" value="5" step="0.1" min="-2" max="9" />
+      </div>
+      <div class="field">
+        <label>Vmag máxima</label>
+        <input type="number" id="magMax" value="9" step="0.1" min="0" max="10" />
+      </div>
+      <div class="field">
+        <label>Ordenar por</label>
+        <select id="sortBy">
+          <option value="diff">Cercanía al cenit</option>
+          <option value="vmag">Magnitud</option>
+          <option value="alt">Altitud</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn-primary" id="btn-calc" onclick="calculate()" disabled>
+        Cargando catálogo...
+      </button>
+      <button class="btn-secondary" onclick="useMyLocation()">Usar mi ubicacion (GPS)</button>
+      <span id="catalog-status"></span>
+      <span id="refresh-countdown"></span>
+    </div>
+  </div>
+
+  <!-- Panel hora de cálculo -->
+  <div class="calc-time-panel" id="calcTimePanel" style="display:none">
+    <div class="calc-time-left">
+      <div class="calc-time-label">Hora del cálculo (UT)</div>
+      <div class="calc-time-date" id="calc-date">—</div>
+      <div class="calc-time-hour" id="calc-time">—</div>
+    </div>
+    <div class="calc-time-divider"></div>
+    <div class="sidereal-info" id="siderealInfo">
+      <div class="sidereal-chip">TSL: <span id="chip-lst">—</span></div>
+      <div class="sidereal-chip">
+        <div>AR cenit: <span id="chip-ra">—</span></div>
+        <div class="chip-sub"><span id="chip-ra-deg">—</span></div>
+      </div>
+      <div class="sidereal-chip">
+        <div>Dec cenit: <span id="chip-dec">—</span></div>
+        <div class="chip-sub"><span id="chip-dec-dms">—</span></div>
+      </div>
+      <div class="sidereal-chip">Catálogo: <span id="chip-total">—</span> estrellas</div>
+    </div>
+  </div>
+
+  <div class="results-header" id="resultsHeader" style="display:none">
+    <h2>Estrellas zenitales</h2>
+    <div class="count" id="resultsCount"></div>
+  </div>
+
+  <div class="table-wrap" id="tableWrap">
+    <div class="empty-state">
+      <div class="icon">✦</div>
+      <div>Cargando catálogo de estrellas...</div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ─── CATALOGO ─────────────────────────────────────────────────────────────────
+// Formato: [[ra_deg, dec_deg, vmag, name, ids], ...]
+let CATALOG = [];
+
+async function loadCatalog() {
+  const status = document.getElementById('catalog-status');
+  try {
+    const resp = await fetch('catalog_full.json?v=3');
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    CATALOG = await resp.json();
+    document.getElementById('chip-total').textContent = CATALOG.length.toLocaleString();
+    document.getElementById('btn-calc').disabled = false;
+    document.getElementById('btn-calc').textContent = 'Calcular estrellas zenitales';
+    document.getElementById('tableWrap').innerHTML =
+      '<div class="empty-state"><div class="icon">✦</div>' +
+      '<div>Ingresa tu ubicacion y presiona <strong>Calcular</strong></div></div>';
+    status.textContent = CATALOG.length.toLocaleString() + ' estrellas cargadas';
+  } catch(e) {
+    status.className = 'error';
+    status.textContent = 'Error: ' + e.message + ' — Asegúrate de usar server.py';
+    document.getElementById('tableWrap').innerHTML =
+      '<div class="empty-state"><div class="icon">⚠</div>' +
+      '<div>No se pudo cargar el catálogo.<br>' +
+      'Ejecuta <strong>python server.py</strong> y recarga la página.</div></div>';
+  }
+}
+
+// ─── ASTRONOMIA ───────────────────────────────────────────────────────────────
+const DEG = Math.PI / 180;
+
+function gmst(date) {
+  const jd = date.getTime() / 86400000 + 2440587.5;
+  const T  = (jd - 2451545.0) / 36525.0;
+  let g = 280.46061837 + 360.98564736629 * (jd - 2451545.0)
+          + 0.000387933 * T * T - T * T * T / 38710000;
+  return ((g % 360) + 360) % 360;
+}
+
+function lst(date, lonDeg) {
+  return ((gmst(date) + lonDeg) % 360 + 360) % 360;
+}
+
+function altitude(haDeg, decDeg, latDeg) {
+  const ha  = haDeg  * DEG;
+  const dec = decDeg * DEG;
+  const lat = latDeg * DEG;
+  const sinAlt = Math.sin(dec)*Math.sin(lat) + Math.cos(dec)*Math.cos(lat)*Math.cos(ha);
+  return Math.asin(Math.max(-1, Math.min(1, sinAlt))) / DEG;
+}
+
+function angularDist(ra1, dec1, ra2, dec2) {
+  const cos_d = Math.sin(dec1*DEG)*Math.sin(dec2*DEG)
+    + Math.cos(dec1*DEG)*Math.cos(dec2*DEG)*Math.cos((ra1-ra2)*DEG);
+  return Math.acos(Math.max(-1, Math.min(1, cos_d))) / DEG;
+}
+
+function degToHMS(deg) {
+  const h  = ((deg/15) % 24 + 24) % 24;
+  const hh = Math.floor(h);
+  const mm = Math.floor((h - hh) * 60);
+  const ss = Math.floor(((h - hh)*60 - mm) * 60);
+  return `${String(hh).padStart(2,'0')}h ${String(mm).padStart(2,'0')}m ${String(ss).padStart(2,'0')}s`;
+}
+
+function degToDMS(deg) {
+  const sign = deg < 0 ? '-' : '+';
+  const abs  = Math.abs(deg);
+  const dd   = Math.floor(abs);
+  const mm   = Math.floor((abs - dd) * 60);
+  const ss   = Math.floor(((abs - dd)*60 - mm) * 60);
+  return `${sign}${String(dd).padStart(2,'0')}° ${String(mm).padStart(2,'0')}' ${String(ss).padStart(2,'0')}"`;
+}
+
+// ─── CALCULO ──────────────────────────────────────────────────────────────────
+let lastResults = [];
+
+function calculate() {
+  const lat    = parseFloat(document.getElementById('lat').value);
+  const lon    = parseFloat(document.getElementById('lon').value);
+  const radius = parseFloat(document.getElementById('radius').value);
+  const magMin = parseFloat(document.getElementById('magMin').value);
+  const magMax = parseFloat(document.getElementById('magMax').value);
+
+  if (isNaN(lat) || isNaN(lon)) { alert('Ingresa latitud y longitud válidas.'); return; }
+
+  const now    = nowUT();
+  const lstDeg = lst(now, lon);
+  const zenRA  = lstDeg;
+  const zenDec = lat;
+
+  document.getElementById('calcTimePanel').style.display = 'flex';
+  // Fecha y hora UT por separado
+  const days = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+  const months = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  const dd = String(now.getUTCDate()).padStart(2,'0');
+  const mon = months[now.getUTCMonth()];
+  const yyyy = now.getUTCFullYear();
+  const dow = days[now.getUTCDay()];
+  document.getElementById('calc-date').textContent = `${dow} ${dd} ${mon} ${yyyy}`;
+  const hh = String(now.getUTCHours()).padStart(2,'0');
+  const mm2 = String(now.getUTCMinutes()).padStart(2,'0');
+  const ss2 = String(now.getUTCSeconds()).padStart(2,'0');
+  document.getElementById('calc-time').textContent = `${hh}:${mm2}:${ss2} UT`;
+  document.getElementById('chip-lst').textContent    = degToHMS(lstDeg);
+  document.getElementById('chip-ra').textContent     = degToHMS(lstDeg);
+  document.getElementById('chip-ra-deg').textContent = lstDeg.toFixed(4) + '°';
+  document.getElementById('chip-dec').textContent    = lat.toFixed(4) + '°';
+  document.getElementById('chip-dec-dms').textContent = degToDMS(lat);
+
+  const results = [];
+  for (const s of CATALOG) {
+    // s = [ra, dec, vmag, name, ids]
+    const ra = s[0], dec = s[1], vmag = s[2];
+    if (vmag < magMin || vmag > magMax) continue;
+
+    const haDeg = lstDeg - ra;
+    const alt   = altitude(haDeg, dec, lat);
+    if (alt < 0) continue;
+
+    const diff = angularDist(ra, dec, zenRA, zenDec);
+    if (diff > radius) continue;
+
+    results.push({
+      ra, dec, vmag,
+      name: s[3],
+      ids:  s[4],
+      alt:  Math.round(alt  * 100) / 100,
+      diff: Math.round(diff * 100) / 100
+    });
+  }
+
+  lastResults = results;
+  renderTable(results);
+}
+
+// ─── RENDERIZADO ──────────────────────────────────────────────────────────────
+function renderTable(results) {
+  const sortBy = document.getElementById('sortBy').value;
+
+  const sorted = [...results].sort((a, b) => {
+    if (sortBy === 'diff') return a.diff - b.diff;
+    if (sortBy === 'vmag') return a.vmag - b.vmag;
+    if (sortBy === 'alt')  return b.alt  - a.alt;
+    return 0;
+  });
+
+  document.getElementById('resultsHeader').style.display = 'flex';
+  document.getElementById('resultsCount').textContent =
+    `${sorted.length.toLocaleString()} estrella${sorted.length !== 1 ? 's' : ''} encontrada${sorted.length !== 1 ? 's' : ''}`;
+
+  if (sorted.length === 0) {
+    document.getElementById('tableWrap').innerHTML =
+      '<div class="empty-state"><div class="icon">✦</div>' +
+      '<div>No se encontraron estrellas con los filtros actuales.</div></div>';
+    return;
+  }
+
+  const rows = sorted.map((s, i) => {
+    const isBest     = i === 0 && sortBy === 'diff';
+    const displayName = s.name || s.ids.split(' · ')[0] || '—';
+
+    let magColor = '#6b7280';
+    if      (s.vmag <= 2) magColor = '#fbbf24';
+    else if (s.vmag <= 4) magColor = '#a78bfa';
+    else if (s.vmag <= 6) magColor = '#5b7fff';
+    else if (s.vmag <= 8) magColor = '#34d399';
+    else                  magColor = '#9ca3af';
+
+    const altPct = Math.min(100, (s.alt / 90) * 100).toFixed(0);
+    const diffCell = isBest
+      ? `<span class="diff-best">★ ${s.diff}°</span>`
+      : `<span class="diff-val">${s.diff}°</span>`;
+
+    return `<tr>
+      <td>
+        <div class="star-name">${displayName}</div>
+        <div class="star-ids">${s.ids}</div>
+      </td>
+      <td><span class="vmag-badge" style="border-color:${magColor};color:${magColor}">${s.vmag.toFixed(2)}</span></td>
+      <td>
+        <div class="alt-bar-wrap">
+          <div class="alt-bar"><div class="alt-bar-fill" style="width:${altPct}%"></div></div>
+          <span class="alt-val">${s.alt}°</span>
+        </div>
+      </td>
+      <td>${diffCell}</td>
+      <td style="color:var(--muted);font-size:0.82rem;white-space:nowrap">${degToHMS(s.ra)}</td>
+      <td style="color:var(--muted);font-size:0.82rem;white-space:nowrap">${degToDMS(s.dec)}</td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('tableWrap').innerHTML = `
+    <table>
+      <thead><tr>
+        <th>Estrella</th>
+        <th>Vmag</th>
+        <th>Altitud</th>
+        <th>Dist. al cenit</th>
+        <th>AR (h)</th>
+        <th>Dec (°)</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+}
+
+// ─── GPS ──────────────────────────────────────────────────────────────────────
+function useMyLocation() {
+  if (!navigator.geolocation) { alert('Geolocalización no disponible.'); return; }
+  navigator.geolocation.getCurrentPosition(pos => {
+    document.getElementById('lat').value = pos.coords.latitude.toFixed(5);
+    document.getElementById('lon').value = pos.coords.longitude.toFixed(5);
+    calculate();
+  }, () => alert('No se pudo obtener la ubicación.'));
+}
+
+// ─── AUTO-REFRESH 60s ─────────────────────────────────────────────────────────
+let countdown = 60;
+setInterval(() => {
+  countdown--;
+  document.getElementById('refresh-countdown').textContent =
+    lastResults.length > 0 ? `Actualiza en ${countdown}s` : '';
+  if (countdown <= 0) {
+    countdown = 60;
+    if (lastResults.length > 0) calculate();
+  }
+}, 1000);
+
+document.getElementById('sortBy').addEventListener('change', () => {
+  if (lastResults.length > 0) renderTable(lastResults);
+});
+
+// ─── HORA UT DESDE INTERNET ───────────────────────────────────────────────────
+let timeOffsetMs = 0; // diferencia entre hora real UT y reloj local
+
+async function syncTime() {
+  const apis = [
+    'https://worldtimeapi.org/api/timezone/Etc/UTC',
+    'https://timeapi.io/api/time/current/zone?timeZone=UTC',
+  ];
+  for (const url of apis) {
+    try {
+      const t0 = Date.now();
+      const resp = await fetch(url);
+      const t1 = Date.now();
+      const data = await resp.json();
+      // worldtimeapi -> data.unixtime (segundos)
+      // timeapi.io   -> data.dateTime (ISO string)
+      let serverMs;
+      if (data.unixtime) {
+        serverMs = data.unixtime * 1000 + (t1 - t0) / 2;
+      } else if (data.dateTime) {
+        serverMs = new Date(data.dateTime + 'Z').getTime() + (t1 - t0) / 2;
+      } else continue;
+      timeOffsetMs = serverMs - t1;
+      console.log(`Tiempo sincronizado (offset ${timeOffsetMs.toFixed(0)} ms) via ${url}`);
+      document.getElementById('catalog-status').textContent +=
+        ' · Hora UT sincronizada';
+      return;
+    } catch(e) {
+      console.warn('API de tiempo no disponible:', url, e.message);
+    }
+  }
+  console.warn('No se pudo sincronizar la hora UT. Usando reloj local.');
+}
+
+/** Devuelve un Date con la hora UT real (corregida) */
+function nowUT() {
+  return new Date(Date.now() + timeOffsetMs);
+}
+
+// ─── INICIO ───────────────────────────────────────────────────────────────────
+loadCatalog();
+syncTime();
+</script>
+</body>
+</html>
