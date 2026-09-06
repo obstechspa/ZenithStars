@@ -85,6 +85,25 @@
     }
     .filter-row select:focus { outline: none; border-color: var(--accent); }
 
+    .preset-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-top: 0.9rem;
+      align-items: center;
+    }
+    .preset-label { font-size: 0.75rem; color: var(--muted); letter-spacing: 0.03em; }
+    .btn-preset {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 0.3rem 0.7rem;
+      border-radius: 99px;
+      font-size: 0.78rem;
+      font-weight: 500;
+    }
+    .btn-preset:hover { border-color: var(--accent); color: #fff; }
+
     .btn-row { display: flex; gap: 0.75rem; margin-top: 1.25rem; flex-wrap: wrap; align-items: center; }
     button {
       padding: 0.6rem 1.4rem;
@@ -223,7 +242,7 @@
 <header>
   <div>
     <h1>Zenith<span>Stars</span></h1>
-    <div class="subtitle">Estrellas cercanas al cenit &mdash; Catálogo HYG + BSC (mag 0&ndash;9)</div>
+    <div class="subtitle">Estrellas en una dirección del cielo (ALT/AZ) &mdash; Catálogo HYG + BSC (mag 0&ndash;9)</div>
   </div>
 </header>
 
@@ -240,10 +259,32 @@
         <label>Longitud (°)</label>
         <input type="number" id="lon" value="-70.76498" step="0.00001" min="-180" max="180" />
       </div>
+    </div>
+
+    <h2 style="margin-top:1.5rem">Direccion observada (coordenadas azimutales)</h2>
+    <div class="inputs-row">
       <div class="field">
-        <label>Radio al cenit (°)</label>
+        <label>Altitud ALT (°) &mdash; 0 = horizonte, 90 = cenit</label>
+        <input type="number" id="targetAlt" value="90" step="1" min="0" max="90" />
+      </div>
+      <div class="field">
+        <label>Azimut AZ (°) &mdash; 0 = Norte, 90 = Este</label>
+        <input type="number" id="targetAz" value="0" step="1" min="0" max="360" />
+      </div>
+      <div class="field">
+        <label>Radio de búsqueda (°)</label>
         <input type="number" id="radius" value="30" step="1" min="1" max="89" />
       </div>
+    </div>
+
+    <div class="preset-row">
+      <span class="preset-label">Atajos:</span>
+      <button type="button" class="btn-preset" onclick="setTarget(90,0)">Cenit</button>
+      <button type="button" class="btn-preset" onclick="setTarget(45,0)">N 45°</button>
+      <button type="button" class="btn-preset" onclick="setTarget(45,90)">E 45°</button>
+      <button type="button" class="btn-preset" onclick="setTarget(45,180)">S 45°</button>
+      <button type="button" class="btn-preset" onclick="setTarget(45,270)">O 45°</button>
+      <button type="button" class="btn-preset" onclick="setTarget(20,180)">S 20°</button>
     </div>
 
     <div class="filter-row">
@@ -258,9 +299,10 @@
       <div class="field">
         <label>Ordenar por</label>
         <select id="sortBy">
-          <option value="diff">Cercanía al cenit</option>
+          <option value="diff">Cercanía al objetivo</option>
           <option value="vmag">Magnitud</option>
           <option value="alt">Altitud</option>
+          <option value="az">Azimut</option>
         </select>
       </div>
     </div>
@@ -286,11 +328,15 @@
     <div class="sidereal-info" id="siderealInfo">
       <div class="sidereal-chip">TSL: <span id="chip-lst">—</span></div>
       <div class="sidereal-chip">
-        <div>AR cenit: <span id="chip-ra">—</span></div>
+        <div>Dirección: <span id="chip-target">—</span></div>
+        <div class="chip-sub"><span id="chip-target-card">—</span></div>
+      </div>
+      <div class="sidereal-chip">
+        <div>AR objetivo: <span id="chip-ra">—</span></div>
         <div class="chip-sub"><span id="chip-ra-deg">—</span></div>
       </div>
       <div class="sidereal-chip">
-        <div>Dec cenit: <span id="chip-dec">—</span></div>
+        <div>Dec objetivo: <span id="chip-dec">—</span></div>
         <div class="chip-sub"><span id="chip-dec-dms">—</span></div>
       </div>
       <div class="sidereal-chip">Catálogo: <span id="chip-total">—</span> estrellas</div>
@@ -298,7 +344,7 @@
   </div>
 
   <div class="results-header" id="resultsHeader" style="display:none">
-    <h2>Estrellas zenitales</h2>
+    <h2 id="resultsTitle">Estrellas en la dirección observada</h2>
     <div class="count" id="resultsCount"></div>
   </div>
 
@@ -324,10 +370,10 @@ async function loadCatalog() {
     CATALOG = await resp.json();
     document.getElementById('chip-total').textContent = CATALOG.length.toLocaleString();
     document.getElementById('btn-calc').disabled = false;
-    document.getElementById('btn-calc').textContent = 'Calcular estrellas zenitales';
+    document.getElementById('btn-calc').textContent = 'Calcular estrellas';
     document.getElementById('tableWrap').innerHTML =
       '<div class="empty-state"><div class="icon">✦</div>' +
-      '<div>Ingresa tu ubicacion y presiona <strong>Calcular</strong></div></div>';
+      '<div>Ingresa tu ubicacion y la dirección (ALT/AZ), luego presiona <strong>Calcular</strong></div></div>';
     status.textContent = CATALOG.length.toLocaleString() + ' estrellas cargadas';
   } catch(e) {
     status.className = 'error';
@@ -362,10 +408,45 @@ function altitude(haDeg, decDeg, latDeg) {
   return Math.asin(Math.max(-1, Math.min(1, sinAlt))) / DEG;
 }
 
-function angularDist(ra1, dec1, ra2, dec2) {
-  const cos_d = Math.sin(dec1*DEG)*Math.sin(dec2*DEG)
-    + Math.cos(dec1*DEG)*Math.cos(dec2*DEG)*Math.cos((ra1-ra2)*DEG);
+/** Azimut de la estrella, medido desde el Norte hacia el Este (0-360°) */
+function azimuth(haDeg, decDeg, latDeg) {
+  const ha  = haDeg  * DEG;
+  const dec = decDeg * DEG;
+  const lat = latDeg * DEG;
+  const az = Math.atan2(
+    -Math.cos(dec) * Math.sin(ha),
+     Math.sin(dec) * Math.cos(lat) - Math.cos(dec) * Math.sin(lat) * Math.cos(ha)
+  ) / DEG;
+  return (az % 360 + 360) % 360;
+}
+
+/** Distancia angular entre dos puntos dados en coordenadas horizontales (alt/az) */
+function horizDist(alt1, az1, alt2, az2) {
+  const cos_d = Math.sin(alt1*DEG)*Math.sin(alt2*DEG)
+    + Math.cos(alt1*DEG)*Math.cos(alt2*DEG)*Math.cos((az1-az2)*DEG);
   return Math.acos(Math.max(-1, Math.min(1, cos_d))) / DEG;
+}
+
+/** Convierte una dirección alt/az del observador a coordenadas ecuatoriales AR/Dec */
+function altAzToRaDec(altDeg, azDeg, latDeg, lstDeg) {
+  const alt = altDeg * DEG;
+  const az  = azDeg  * DEG;
+  const lat = latDeg * DEG;
+  const sinDec = Math.sin(alt)*Math.sin(lat) + Math.cos(alt)*Math.cos(lat)*Math.cos(az);
+  const dec = Math.asin(Math.max(-1, Math.min(1, sinDec))) / DEG;
+  const ha = Math.atan2(
+    -Math.sin(az) * Math.cos(alt),
+     Math.cos(lat) * Math.sin(alt) - Math.sin(lat) * Math.cos(alt) * Math.cos(az)
+  ) / DEG;
+  const ra = ((lstDeg - ha) % 360 + 360) % 360;
+  return { ra, dec };
+}
+
+const CARDINALS = ['N','NNE','NE','ENE','E','ESE','SE','SSE',
+                   'S','SSO','SO','OSO','O','ONO','NO','NNO'];
+function cardinal(azDeg) {
+  const a = (azDeg % 360 + 360) % 360;
+  return CARDINALS[Math.round(a / 22.5) % 16];
 }
 
 function degToHMS(deg) {
@@ -394,13 +475,19 @@ function calculate() {
   const radius = parseFloat(document.getElementById('radius').value);
   const magMin = parseFloat(document.getElementById('magMin').value);
   const magMax = parseFloat(document.getElementById('magMax').value);
+  let tgtAlt   = parseFloat(document.getElementById('targetAlt').value);
+  let tgtAz    = parseFloat(document.getElementById('targetAz').value);
 
   if (isNaN(lat) || isNaN(lon)) { alert('Ingresa latitud y longitud válidas.'); return; }
+  if (isNaN(tgtAlt) || tgtAlt < 0 || tgtAlt > 90) {
+    alert('La altitud (ALT) debe estar entre 0° y 90°.'); return;
+  }
+  if (isNaN(tgtAz)) { alert('Ingresa un azimut (AZ) válido.'); return; }
+  tgtAz = (tgtAz % 360 + 360) % 360;
 
   const now    = nowUT();
   const lstDeg = lst(now, lon);
-  const zenRA  = lstDeg;
-  const zenDec = lat;
+  const target = altAzToRaDec(tgtAlt, tgtAz, lat, lstDeg);
 
   document.getElementById('calcTimePanel').style.display = 'flex';
   // Fecha y hora UT por separado
@@ -415,11 +502,17 @@ function calculate() {
   const mm2 = String(now.getUTCMinutes()).padStart(2,'0');
   const ss2 = String(now.getUTCSeconds()).padStart(2,'0');
   document.getElementById('calc-time').textContent = `${hh}:${mm2}:${ss2} UT`;
-  document.getElementById('chip-lst').textContent    = degToHMS(lstDeg);
-  document.getElementById('chip-ra').textContent     = degToHMS(lstDeg);
-  document.getElementById('chip-ra-deg').textContent = lstDeg.toFixed(4) + '°';
-  document.getElementById('chip-dec').textContent    = lat.toFixed(4) + '°';
-  document.getElementById('chip-dec-dms').textContent = degToDMS(lat);
+  document.getElementById('chip-lst').textContent      = degToHMS(lstDeg);
+  document.getElementById('chip-target').textContent   = `ALT ${tgtAlt}° · AZ ${tgtAz}°`;
+  document.getElementById('chip-target-card').textContent =
+    tgtAlt >= 89.5 ? 'cenit' : `hacia el ${cardinal(tgtAz)}`;
+  document.getElementById('chip-ra').textContent       = degToHMS(target.ra);
+  document.getElementById('chip-ra-deg').textContent   = target.ra.toFixed(4) + '°';
+  document.getElementById('chip-dec').textContent      = target.dec.toFixed(4) + '°';
+  document.getElementById('chip-dec-dms').textContent  = degToDMS(target.dec);
+  document.getElementById('resultsTitle').textContent  = tgtAlt >= 89.5
+    ? 'Estrellas zenitales'
+    : `Estrellas cerca de ALT ${tgtAlt}° / AZ ${tgtAz}° (${cardinal(tgtAz)})`;
 
   const results = [];
   for (const s of CATALOG) {
@@ -431,7 +524,8 @@ function calculate() {
     const alt   = altitude(haDeg, dec, lat);
     if (alt < 0) continue;
 
-    const diff = angularDist(ra, dec, zenRA, zenDec);
+    const az   = azimuth(haDeg, dec, lat);
+    const diff = horizDist(alt, az, tgtAlt, tgtAz);
     if (diff > radius) continue;
 
     results.push({
@@ -439,6 +533,7 @@ function calculate() {
       name: s[3],
       ids:  s[4],
       alt:  Math.round(alt  * 100) / 100,
+      az:   Math.round(az   * 100) / 100,
       diff: Math.round(diff * 100) / 100
     });
   }
@@ -455,6 +550,7 @@ function renderTable(results) {
     if (sortBy === 'diff') return a.diff - b.diff;
     if (sortBy === 'vmag') return a.vmag - b.vmag;
     if (sortBy === 'alt')  return b.alt  - a.alt;
+    if (sortBy === 'az')   return a.az   - b.az;
     return 0;
   });
 
@@ -497,6 +593,10 @@ function renderTable(results) {
           <span class="alt-val">${s.alt}°</span>
         </div>
       </td>
+      <td>
+        <div class="alt-val">${s.az}°</div>
+        <div class="star-ids">${cardinal(s.az)}</div>
+      </td>
       <td>${diffCell}</td>
       <td style="color:var(--muted);font-size:0.82rem;white-space:nowrap">${degToHMS(s.ra)}</td>
       <td style="color:var(--muted);font-size:0.82rem;white-space:nowrap">${degToDMS(s.dec)}</td>
@@ -509,12 +609,20 @@ function renderTable(results) {
         <th>Estrella</th>
         <th>Vmag</th>
         <th>Altitud</th>
-        <th>Dist. al cenit</th>
+        <th>Azimut</th>
+        <th>Dist. al objetivo</th>
         <th>AR (h)</th>
         <th>Dec (°)</th>
       </tr></thead>
       <tbody>${rows}</tbody>
     </table>`;
+}
+
+// ─── ATAJOS DE DIRECCION ──────────────────────────────────────────────────────
+function setTarget(alt, az) {
+  document.getElementById('targetAlt').value = alt;
+  document.getElementById('targetAz').value  = az;
+  if (!document.getElementById('btn-calc').disabled) calculate();
 }
 
 // ─── GPS ──────────────────────────────────────────────────────────────────────
