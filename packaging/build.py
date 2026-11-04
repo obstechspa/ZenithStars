@@ -35,7 +35,7 @@ def main():
     stem = ROOT / 'dist' / f'ZenithStars-{__version__}-{osname}-{platform.machine().lower()}'
     shutil.copy(ROOT / 'packaging' / 'LEEME.txt', ROOT / 'dist' / 'ZenithStars' / 'LEEME.txt')
     zip_path = shutil.make_archive(str(stem), 'zip', ROOT / 'dist', 'ZenithStars')
-    print(f'\n→ {zip_path}')
+    print(f'\n-> {zip_path}')
 
 
 if __name__ == '__main__':
