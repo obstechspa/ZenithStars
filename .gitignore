@@ -13,3 +13,7 @@ ZenithStars.xlsx
 # Python
 __pycache__/
 *.pyc
+
+# v2: salidas de PyInstaller
+build/
+dist/

@@ -1,0 +1,22 @@
+ZenithStars v2 — buscar estrella de colimación y apuntar el telescopio por ASCOM
+
+1. Ejecutar ZenithStars.exe (o ./ZenithStars en macOS/Linux). Se abre el
+   navegador en http://localhost:8001 y queda una consola abierta: cerrarla
+   detiene ZenithStars.
+2. Telescopio:
+   - "Elegir driver ASCOM…" abre el ASCOM Chooser (Windows, driver COM), o
+   - "Buscar Alpaca en la red" lista los servidores Alpaca, o
+   - escribir la URL Alpaca a mano (p. ej. http://127.0.0.1:11111).
+3. Elegir la dirección (Cenit por defecto) y "Buscar estrella": se marca con ★
+   la estrella aislada más cercana. "Apuntar telescopio" pide confirmación y
+   mueve la montura. "Abortar" detiene el movimiento.
+
+Seguridad: ZenithStars no desestaciona la montura, no apunta bajo la altura
+mínima (30° por defecto; cambiar con --min-alt) y no mueve la montura si ya se
+está moviendo. Si la montura ya estaba conectada por otro programa al
+conectarse, la deja conectada al salir. Solo acepta conexiones desde este PC.
+
+Opciones: ZenithStars.exe --port 8001 --min-alt 30 --no-browser
+
+La versión original (v1, sin telescopio) sigue disponible en
+http://localhost:8001/v1/
