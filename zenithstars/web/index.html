@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="es" data-obs-medium="interface" data-obs-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ZenithStars v2</title>
+<link rel="stylesheet" href="obstech-colors.css">
+<style>
+  /* obstech-colors.css (kit 0.4.1) intercambia rule/mute en el tema oscuro con
+     una referencia circular (--obs-rule: var(--obs-mute) y viceversa): CSS anula
+     ambas y desaparecen bordes y texto secundario. Mismo intercambio, sin ciclo. */
+  :root[data-obs-theme="dark"] { --obs-rule: #6B7785; /* obsMute */ --obs-mute: #D7DCE3; /* obsRule */ }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--obs-bg); color: var(--obs-text); font: 14px/1.4 system-ui, 'Segoe UI', sans-serif; }
+  header { display: flex; align-items: center; gap: 1rem; padding: .8rem 1.4rem; border-bottom: 1px solid var(--obs-rule); }
+  header h1 { font-size: 1.25rem; font-weight: 600; }
+  header h1 small { color: var(--obs-accent); font-weight: 500; margin-left: .4rem; }
+  header a { color: var(--obs-mute); margin-left: auto; font-size: .85rem; }
+  main { display: grid; grid-template-columns: 340px 1fr; gap: 1rem; padding: 1rem 1.4rem; }
+  @media (max-width: 860px) { main { grid-template-columns: 1fr; } }
+  .col { display: flex; flex-direction: column; gap: 1rem; min-width: 0; }
+  .card { background: var(--obs-panel); border: 1px solid var(--obs-rule); border-radius: 8px; padding: 1rem; }
+  .card h2 { font-size: .75rem; letter-spacing: .08em; text-transform: uppercase; color: var(--obs-mute); margin-bottom: .7rem; }
+  label { display: block; font-size: .75rem; color: var(--obs-mute); margin-bottom: .2rem; }
+  input, select { width: 100%; background: var(--obs-bg); color: var(--obs-text); border: 1px solid var(--obs-rule);
+                  border-radius: 5px; padding: .4rem .5rem; font: inherit; }
+  input:focus { outline: 2px solid var(--obs-accent); outline-offset: -1px; }
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: .6rem; margin-bottom: .6rem; }
+  .row3 { grid-template-columns: 1fr 1fr 1fr; }
+  button { font: inherit; cursor: pointer; border-radius: 5px; padding: .45rem .8rem; border: 1px solid var(--obs-rule);
+           background: transparent; color: var(--obs-text); }
+  button:hover:not(:disabled) { border-color: var(--obs-accent); }
+  button:disabled { opacity: .4; cursor: default; }
+  button.primary { background: var(--obs-accent); border-color: var(--obs-accent); color: var(--obs-ink); font-weight: 600; }
+  button.danger { background: var(--obs-bad); border-color: var(--obs-bad); color: var(--obs-paper); font-weight: 600; }
+  button.wide { width: 100%; }
+  .btns { display: flex; flex-wrap: wrap; gap: .4rem; margin-bottom: .6rem; }
+  .presets button { padding: .25rem .55rem; font-size: .8rem; }
+  .kv { display: grid; grid-template-columns: auto 1fr; gap: .15rem .8rem; font-size: .85rem; margin: .5rem 0; }
+  .kv dt { color: var(--obs-mute); }
+  .kv dd { font-variant-numeric: tabular-nums; }
+  .pill { display: inline-block; padding: .1rem .5rem; border-radius: 99px; font-size: .75rem; border: 1px solid currentColor; }
+  .good { color: var(--obs-good); } .warn { color: var(--obs-warn); } .bad { color: var(--obs-bad); } .mute { color: var(--obs-mute); }
+  .dev { display: block; width: 100%; text-align: left; margin-bottom: .3rem; }
+  .msg { font-size: .85rem; margin-top: .6rem; min-height: 1.2em; }
+  .target-name { font-size: 1.5rem; font-weight: 600; }
+  .target-ids { color: var(--obs-mute); font-size: .8rem; }
+  .slewbar { display: grid; grid-template-columns: 2fr 1fr; gap: .6rem; margin-top: .8rem; }
+  .slewbar button { padding: .8rem; font-size: 1rem; }
+  table { width: 100%; border-collapse: collapse; font-size: .85rem; font-variant-numeric: tabular-nums; }
+  th { text-align: left; color: var(--obs-mute); font-weight: 500; font-size: .72rem; text-transform: uppercase;
+       padding: .4rem .5rem; border-bottom: 1px solid var(--obs-rule); position: sticky; top: 0; background: var(--obs-panel); }
+  td { padding: .35rem .5rem; border-bottom: 1px solid color-mix(in srgb, var(--obs-rule) 40%, transparent); }
+  tbody tr { cursor: pointer; }
+  tbody tr:hover { background: color-mix(in srgb, var(--obs-accent) 10%, transparent); }
+  tr.sel { background: color-mix(in srgb, var(--obs-accent) 22%, transparent) !important; }
+  tr.low { opacity: .45; }
+  .tablewrap { max-height: 55vh; overflow: auto; }
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+<header>
+  <h1>ZenithStars<small>v2 · ASCOM</small></h1>
+  <span id="hdr-mount" class="pill mute">sin montura</span>
+  <a href="/v1/" target="_blank" title="La versión original, sin conexión al telescopio">versión clásica (v1) ↗</a>
+</header>
+
+<main>
+<div class="col">
+
+  <section class="card" id="card-mount">
+    <h2>Telescopio</h2>
+    <div id="mount-off">
+      <div class="btns">
+        <button id="btn-reconnect" class="primary hidden"></button>
+        <button id="btn-discover">Buscar Alpaca en la red</button>
+        <button id="btn-com" class="hidden">Elegir driver ASCOM…</button>
+      </div>
+      <div id="devices"></div>
+      <div class="row" style="grid-template-columns: 1fr 70px">
+        <div><label>URL Alpaca</label><input id="alpaca-url" placeholder="http://127.0.0.1:11111"></div>
+        <div><label>Disp.</label><input id="alpaca-dev" type="number" value="0" min="0"></div>
+      </div>
+      <button id="btn-connect" class="wide">Conectar</button>
+    </div>
+    <div id="mount-on" class="hidden">
+      <div id="m-name" style="font-weight:600"></div>
+      <div id="m-label" class="target-ids"></div>
+      <dl class="kv">
+        <dt>Sitio</dt><dd id="m-site"></dd>
+        <dt>AR / Dec</dt><dd id="m-radec"></dd>
+        <dt>Alt / Az</dt><dd id="m-altaz"></dd>
+        <dt>Sistema</dt><dd id="m-eq"></dd>
+        <dt>Estado</dt><dd id="m-state"></dd>
+        <dt>Reloj</dt><dd id="m-clock"></dd>
+      </dl>
+      <button id="btn-disconnect" class="wide" title="Si la montura ya estaba conectada por otro programa, se deja conectada">Desconectar ZenithStars</button>
+    </div>
+    <div class="msg" id="mount-msg"></div>
+  </section>
+
+  <section class="card" id="card-site">
+    <h2>Ubicación <span class="mute" style="text-transform:none" id="site-src">(manual)</span></h2>
+    <div class="row">
+      <div><label>Latitud (°)</label><input id="lat" type="number" step="0.0001" value="-30.4705"></div>
+      <div><label>Longitud (°, E+)</label><input id="lon" type="number" step="0.0001" value="-70.765"></div>
+    </div>
+    <button id="btn-gps" class="wide">Usar GPS del navegador</button>
+  </section>
+
+  <section class="card">
+    <h2>Dirección y filtros</h2>
+    <div class="btns presets">
+      <button data-alt="90" data-az="0">Cenit</button>
+      <button data-alt="60" data-az="0">N 60°</button>
+      <button data-alt="60" data-az="90">E 60°</button>
+      <button data-alt="60" data-az="180">S 60°</button>
+      <button data-alt="60" data-az="270">O 60°</button>
+    </div>
+    <div class="row">
+      <div><label>ALT (°)</label><input id="alt" type="number" min="0" max="90" value="90"></div>
+      <div><label>AZ (°, N→E)</label><input id="az" type="number" min="0" max="360" value="0"></div>
+    </div>
+    <div class="row row3">
+      <div><label>Radio (°)</label><input id="radius" type="number" min="0.1" max="90" value="15"></div>
+      <div><label>V mín</label><input id="mag_min" type="number" step="0.1" value="5"></div>
+      <div><label>V máx</label><input id="mag_max" type="number" step="0.1" value="9"></div>
+    </div>
+    <div class="row">
+      <div><label title="Sin otra estrella más brillante que V+ΔV dentro de este radio">Aislamiento (′)</label><input id="iso_arcmin" type="number" min="0" max="59" step="0.5" value="3"></div>
+      <div><label>ΔV vecina</label><input id="iso_dmag" type="number" min="0" max="10" step="0.5" value="2"></div>
+    </div>
+    <button id="btn-search" class="primary wide">Buscar estrella</button>
+  </section>
+
+</div>
+<div class="col">
+
+  <section class="card" id="card-target">
+    <h2>Objetivo</h2>
+    <div id="target-empty" class="mute">Busca una dirección: se elige sola la estrella aislada más cercana.</div>
+    <div id="target" class="hidden">
+      <div class="target-name" id="t-name"></div>
+      <div class="target-ids" id="t-ids"></div>
+      <dl class="kv">
+        <dt>V</dt><dd id="t-v"></dd>
+        <dt>Alt / Az ahora</dt><dd id="t-altaz"></dd>
+        <dt>Distancia a la dirección</dt><dd id="t-sep"></dd>
+        <dt>AR / Dec J2000</dt><dd id="t-radec"></dd>
+        <dt>Vecinas</dt><dd id="t-iso"></dd>
+      </dl>
+      <div class="slewbar">
+        <button id="btn-slew" class="primary" disabled>Apuntar telescopio</button>
+        <button id="btn-abort" class="danger" disabled>Abortar</button>
+      </div>
+      <div class="msg" id="slew-msg"></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2 id="list-title">Candidatas</h2>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Estrella</th><th>V</th><th>Alt</th><th>Az</th><th>Dist.</th><th>Vecina</th></tr></thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+  </section>
+
+</div>
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+const store = {
+  get(k, d) { try { return JSON.parse(localStorage.getItem('zs2.' + k)) ?? d; } catch { return d; } },
+  set(k, v) { try { localStorage.setItem('zs2.' + k, JSON.stringify(v)); } catch {} },
+};
+const FIELDS = ['lat', 'lon', 'alt', 'az', 'radius', 'mag_min', 'mag_max', 'iso_arcmin', 'iso_dmag'];
+
+let status = null, result = null, selected = null, lastSlew = null;
+
+async function api(path, body) {
+  const opt = body === undefined ? {} :
+    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) };
+  const r = await fetch(path, opt);
+  const j = await r.json().catch(() => ({ error: 'respuesta inválida (HTTP ' + r.status + ')' }));
+  if (!r.ok) throw new Error(j.error || 'HTTP ' + r.status);
+  return j;
+}
+
+function say(id, text, cls = '') { const e = $(id); e.textContent = text; e.className = 'msg ' + cls; }
+const hms = deg => { const h = ((deg / 15) % 24 + 24) % 24, m = (h % 1) * 60;
+  return `${String(Math.floor(h)).padStart(2, '0')}h ${String(Math.floor(m)).padStart(2, '0')}m ${((m % 1) * 60).toFixed(1).padStart(4, '0')}s`; };
+const dms = deg => { const s = deg < 0 ? '−' : '+', a = Math.abs(deg), m = (a % 1) * 60;
+  return `${s}${String(Math.floor(a)).padStart(2, '0')}° ${String(Math.floor(m)).padStart(2, '0')}′ ${((m % 1) * 60).toFixed(0).padStart(2, '0')}″`; };
+const f1 = v => v == null ? '—' : Number(v).toFixed(1);
+
+// ─── montura ────────────────────────────────────────────────────────────────
+async function refreshStatus() {
+  try { status = await api('/api/status'); } catch (e) { return; }
+  const m = status.mount;
+  $('btn-com').classList.toggle('hidden', !status.com_available);
+  $('mount-off').classList.toggle('hidden', !!m);
+  $('mount-on').classList.toggle('hidden', !m);
+  $('card-site').classList.toggle('hidden', !!m);
+  const pill = $('hdr-mount');
+  if (!m) { pill.textContent = 'sin montura'; pill.className = 'pill mute'; updateSlewButtons(); return; }
+
+  $('m-name').textContent = m.Name || '(sin nombre)';
+  $('m-label').textContent = m.label;
+  $('m-site').textContent = m.SiteLatitude == null ? '—' : `${m.SiteLatitude.toFixed(4)}°, ${m.SiteLongitude.toFixed(4)}°`;
+  $('m-radec').textContent = m.RightAscension == null ? '—' : `${hms(m.RightAscension * 15)}  ${dms(m.Declination)}`;
+  $('m-altaz').textContent = `${f1(m.Altitude)}° / ${f1(m.Azimuth)}°`;
+  $('m-eq').textContent = m.EquatorialSystemName;
+  const st = m.unreachable ? ['sin respuesta', 'bad'] : m.AtPark ? ['estacionada', 'warn']
+           : m.Slewing ? ['moviéndose', 'warn'] : m.Tracking ? ['tracking', 'good'] : ['detenida', 'mute'];
+  $('m-state').innerHTML = `<span class="pill ${st[1]}">${st[0]}</span>`;
+  const off = m.clock_offset_s;
+  $('m-clock').innerHTML = off == null ? '—' : Math.abs(off) > 5
+    ? `<span class="warn">montura ${off > 0 ? '+' : ''}${off} s respecto a este PC</span>` : `ok (${off} s)`;
+  pill.textContent = st[0]; pill.className = 'pill ' + st[1];
+
+  if (lastSlew && !m.Slewing && !lastSlew.done) {
+    lastSlew.done = true;
+    const dra = (m.RightAscension - lastSlew.ra_hours) * 15 * Math.cos(lastSlew.dec * Math.PI / 180);
+    const ddec = m.Declination - lastSlew.dec;
+    const err = Math.hypot(((dra + 180) % 360 + 360) % 360 - 180, ddec) * 3600;
+    say('slew-msg', `En posición. Diferencia reportada por la montura: ${err.toFixed(0)}″.`, err > 600 ? 'warn' : 'good');
+  }
+  updateSlewButtons();
+}
+
+async function connect(body) {
+  say('mount-msg', 'Conectando…');
+  try {
+    const r = await api('/api/connect', body);
+    if (body.kind === 'com') body.progid = r.progid;
+    store.set('last', body);
+    say('mount-msg', r.we_connected ? '' : 'La montura ya estaba conectada (otro programa); se dejará conectada al salir.', 'mute');
+    await refreshStatus();
+    if (result) search();
+  } catch (e) { say('mount-msg', e.message, 'bad'); }
+}
+
+$('btn-connect').onclick = () => connect({ kind: 'alpaca', url: $('alpaca-url').value.trim(), device: +$('alpaca-dev').value });
+$('btn-com').onclick = () => connect({ kind: 'com', last: (store.get('last', {}).progid || '') });
+$('btn-disconnect').onclick = async () => { await api('/api/disconnect', {}); say('mount-msg', ''); lastSlew = null; refreshStatus(); };
+$('btn-discover').onclick = async () => {
+  $('devices').innerHTML = '<div class="mute">Buscando…</div>';
+  try {
+    const r = await api('/api/discover');
+    $('devices').innerHTML = r.alpaca.length ? '' : '<div class="mute">Ningún servidor Alpaca respondió al descubrimiento.</div>';
+    for (const d of r.alpaca) {
+      const b = document.createElement('button');
+      b.className = 'dev';
+      b.disabled = d.device == null;
+      b.textContent = d.device == null ? `${d.url} — sin respuesta` : `${d.name} — ${d.url} #${d.device}`;
+      b.onclick = () => { $('alpaca-url').value = d.url; $('alpaca-dev').value = d.device; connect({ kind: 'alpaca', url: d.url, device: d.device }); };
+      $('devices').appendChild(b);
+    }
+  } catch (e) { $('devices').innerHTML = ''; say('mount-msg', e.message, 'bad'); }
+};
+
+(function initReconnect() {
+  const last = store.get('last', null);
+  if (!last) return;
+  const b = $('btn-reconnect');
+  b.textContent = 'Reconectar: ' + (last.kind === 'com' ? last.progid : `${last.url} #${last.device}`);
+  b.classList.remove('hidden');
+  b.onclick = () => connect(last);
+  if (last.kind === 'alpaca') { $('alpaca-url').value = last.url; $('alpaca-dev').value = last.device; }
+})();
+
+// ─── búsqueda ───────────────────────────────────────────────────────────────
+async function search(keepSelection = false) {
+  const q = new URLSearchParams();
+  for (const k of FIELDS) q.set(k, $(k).value);
+  store.set('fields', Object.fromEntries(FIELDS.map(k => [k, $(k).value])));
+  try { result = await api('/api/candidates?' + q); }
+  catch (e) { $('rows').innerHTML = '<tr><td colspan="6" class="bad"></td></tr>'; $('rows').querySelector('td').textContent = e.message; return; }
+  if (result.site_source === 'montura') $('site-src').textContent = '(de la montura)';
+  const keep = keepSelection && selected && result.stars.find(s => s.index === selected.index);
+  selected = keep || (result.best != null ? result.stars[result.best] : null);
+  const a = +$('alt').value;
+  $('list-title').textContent = `Candidatas — ${result.stars.length} de ${result.n_in_radius} en ${$('radius').value}° de ` +
+    (a >= 89.5 ? 'cenit' : `ALT ${a}° / AZ ${$('az').value}°`) + ` · ${result.lat.toFixed(3)}, ${result.lon.toFixed(3)} (${result.site_source})`;
+  renderRows(); renderTarget();
+  if (!selected && result.stars.length) say('slew-msg', 'Ninguna candidata aislada sobre el límite de altura; elige una de la lista.', 'warn');
+}
+
+function renderRows() {
+  $('rows').innerHTML = '';
+  for (const s of result.stars) {
+    const tr = document.createElement('tr');
+    tr.className = (s === selected ? 'sel ' : '') + (s.above_limit ? '' : 'low');
+    const nb = s.neighbour ? `<span class="warn">V${s.neighbour.vmag} a ${s.neighbour.sep_arcmin}′</span>` : '<span class="mute">—</span>';
+    tr.innerHTML = `<td>${s.best ? '★ ' : ''}${s.name}</td><td>${s.vmag.toFixed(2)}</td><td>${s.alt.toFixed(1)}°</td>` +
+                   `<td>${s.az.toFixed(1)}°</td><td>${s.sep.toFixed(2)}°</td><td>${nb}</td>`;
+    tr.onclick = () => { selected = s; renderRows(); renderTarget(); say('slew-msg', ''); };
+    $('rows').appendChild(tr);
+  }
+}
+
+function renderTarget() {
+  $('target-empty').classList.toggle('hidden', !!selected);
+  $('target').classList.toggle('hidden', !selected);
+  if (!selected) return updateSlewButtons();
+  const s = selected;
+  $('t-name').textContent = s.name;
+  $('t-ids').textContent = s.ids;
+  $('t-v').textContent = s.vmag.toFixed(2);
+  $('t-altaz').innerHTML = `${s.alt.toFixed(2)}° / ${s.az.toFixed(2)}°` +
+    (s.above_limit ? '' : ` <span class="bad">bajo el límite de ${status?.min_alt ?? '?'}°</span>`);
+  $('t-sep').textContent = s.sep.toFixed(2) + '°';
+  $('t-radec').textContent = `${hms(s.ra2000)}  ${dms(s.dec2000)}`;
+  $('t-iso').innerHTML = s.neighbour
+    ? `<span class="warn">V ${s.neighbour.vmag} a ${s.neighbour.sep_arcmin}′</span>`
+    : `<span class="good">ninguna más brillante que V ${(s.vmag + +$('iso_dmag').value).toFixed(1)} en ${$('iso_arcmin').value}′</span>`;
+  updateSlewButtons();
+}
+
+function updateSlewButtons() {
+  const m = status?.mount;
+  $('btn-slew').disabled = !(m && selected && selected.above_limit && !m.AtPark && !m.unreachable);
+  $('btn-abort').disabled = !m;
+  $('btn-slew').title = !m ? 'Conecta una montura primero' : m.AtPark ? 'La montura está estacionada' : '';
+}
+
+$('btn-slew').onclick = async () => {
+  const s = selected;
+  if (!confirm(`Mover el telescopio a ${s.name} (V ${s.vmag.toFixed(2)})\nAlt ${s.alt.toFixed(1)}°, Az ${s.az.toFixed(1)}°?`)) return;
+  say('slew-msg', 'Enviando…');
+  try {
+    const r = await api('/api/slew', { index: s.index });
+    lastSlew = { ...r, done: false };
+    say('slew-msg', `Moviéndose a AR ${hms(r.ra_hours * 15)} Dec ${dms(r.dec)} (${r.eq_system})` +
+        (r.notes.length ? ' · ' + r.notes.join(', ') : ''), 'warn');
+    refreshStatus();
+  } catch (e) { say('slew-msg', e.message, 'bad'); }
+};
+$('btn-abort').onclick = async () => {
+  try { await api('/api/abort', {}); say('slew-msg', 'Slew abortado.', 'bad'); lastSlew = null; }
+  catch (e) { say('slew-msg', 'No se pudo abortar: ' + e.message, 'bad'); }
+};
+
+// ─── controles ──────────────────────────────────────────────────────────────
+for (const b of document.querySelectorAll('.presets button'))
+  b.onclick = () => { $('alt').value = b.dataset.alt; $('az').value = b.dataset.az; search(); };
+$('btn-search').onclick = () => search();
+$('btn-gps').onclick = () => navigator.geolocation?.getCurrentPosition(
+  p => { $('lat').value = p.coords.latitude.toFixed(4); $('lon').value = p.coords.longitude.toFixed(4); },
+  () => alert('No se pudo obtener la ubicación del navegador.'));
+
+for (const [k, v] of Object.entries(store.get('fields', {}))) if ($(k)) $(k).value = v;
+refreshStatus();
+setInterval(refreshStatus, 2000);
+setInterval(() => { if (result) search(true); }, 60000);
+</script>
+</body>
+</html>

@@ -1,0 +1,84 @@
+/* =====================================================================
+   obstech-colors.css - the ObsTech colour chart, for the web.
+
+   THE SAME CHART AS obstech-colors.sty, name for name: obsGreenDark is
+   --obs-green-dark, obsGoodBg is --obs-good-bg. The .sty beside this
+   file is the canonical definition and the kit's `make test` pins every
+   value here against it, so a colour moves in one place and both media
+   follow. Link this file (or paste the :root block into a page's own
+   <style>) and use the NAMES - `color: var(--obs-green-dark)` - never a
+   hex in a rule, or the day the brand green moves, forty pages disagree
+   with it.
+
+   ROLES, NOT COLOURS, IN THE PAGE'S OWN RULES. `--obs-accent` is the
+   page's primary accent and it follows WHAT THE READER DOES (Vincent,
+   2026-09-21/23): a page someone READS - the website, the weather page,
+   a status page, a report - is a DOCUMENT and accents with the brand
+   green; a surface someone OPERATES - a control panel with a Stop
+   button, the observer console, an instrument dashboard - accents
+   with amber. HTML is not the question, controls are. The default here
+   is the document; an interface says so once, on its root element:
+
+       <html data-obs-medium="interface">
+
+   and every rule written against --obs-accent turns amber with it.
+   ===================================================================== */
+:root {
+  /* --- brand --------------------------------------------------------- */
+  --obs-green:       #3DC740;   /* the brand green: rules, fills, large type */
+  --obs-green-dark:  #29872C;   /* the green for TEXT on white (4.6:1)        */
+  --obs-green-light: #D9F4DA;   /* block and table-row background             */
+  /* --- neutrals ------------------------------------------------------ */
+  --obs-ink:         #14202E;   /* body text, dark backgrounds                */
+  --obs-mute:        #6B7785;   /* captions, secondary text (4.6:1)           */
+  --obs-rule:        #D7DCE3;   /* hairlines, borders - too light for text    */
+  --obs-wash:        #F5F7FA;   /* page tint, panel background                */
+  --obs-paper:       #FFFFFF;   /* page background                            */
+  /* --- secondary accents, the data-series order ---------------------- */
+  --obs-sky:         #3D7AAF;   /* cool accent, series 1, links               */
+  --obs-amber:       #E08A3C;   /* warm accent, series 2, the UI accent       */
+  --obs-plum:        #6A5687;   /* series 4                                   */
+  --obs-teal:        #2B8182;   /* series 5                                   */
+  /* --- state - meaning, never decoration ----------------------------- */
+  --obs-good:        #29872C;
+  --obs-warn:        #C4A81B;
+  --obs-bad:         #CC2D18;
+  --obs-good-bg:     #E3EBC7;
+  --obs-warn-bg:     #FFEBB5;
+  --obs-bad-bg:      #F9BDBB;
+
+  /* --- roles: what a colour is FOR. Redefine these, never the chart. -- */
+  --obs-accent:      var(--obs-green);       /* a page someone READS          */
+  --obs-ui-accent:   var(--obs-amber);       /* a page someone OPERATES       */
+  --obs-accent-text: var(--obs-green-dark);  /* the accent as text on paper   */
+  --obs-text:        var(--obs-ink);
+  --obs-link:        var(--obs-sky);
+  --obs-bg:          var(--obs-paper);
+  --obs-panel:       var(--obs-wash);
+  --obs-series-1:    var(--obs-sky);
+  --obs-series-2:    var(--obs-amber);
+  --obs-series-3:    var(--obs-green);
+  --obs-series-4:    var(--obs-plum);
+  --obs-series-5:    var(--obs-teal);
+}
+
+/* An operating interface: the accent turns amber, and the accent-as-text
+   stays readable on paper (obsAmber is 2.7:1 there, so text keeps the
+   dark green; a dark interface sets --obs-accent-text to the accent). */
+:root[data-obs-medium="interface"] {
+  --obs-accent: var(--obs-ui-accent);
+}
+
+/* A dark page (a slide, a night console): ink and paper swap, and the
+   accents are safe as text - obsGreen reaches 7.4:1 and obsAmber 6.2:1
+   on obsInk. Opt in with data-obs-theme="dark". Still no colour that
+   is not on the chart: the panel is the ink lifted toward paper, the
+   hairlines are the mute, the secondary text is the rule. */
+:root[data-obs-theme="dark"] {
+  --obs-bg:          var(--obs-ink);
+  --obs-panel:       color-mix(in srgb, var(--obs-ink) 88%, var(--obs-paper));
+  --obs-text:        var(--obs-paper);
+  --obs-accent-text: var(--obs-accent);
+  --obs-rule:        var(--obs-mute);
+  --obs-mute:        var(--obs-rule);
+}
