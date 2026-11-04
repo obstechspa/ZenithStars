@@ -29,10 +29,14 @@ HYG v3, pero sus entradas están en `.gitignore` y no vienen en el repo.
 | módulo | rol |
 |---|---|
 | `astro.py` | GMST, precesión IAU 1976 (matriz de Lieske), alt/az ↔ AR/Dec, `to_mount_system` según `EquatorialSystem` de ASCOM |
-| `catalog.py` | Búsqueda en J2000 (la dirección se des-precesa; la separación es invariante), alt/az solo de candidatas, aislamiento por grilla de 1° |
+| `catalog.py` | `candidates` (dirección + radio) y `band_candidates` (banda de altitud): búsqueda en J2000 (la dirección/el cenit se des-precesan; productos punto y separaciones son invariantes), alt/az solo de candidatas, aislamiento por grilla de 1° |
 | `mount.py` | `AlpacaMount` (urllib), `ComMount` (pywin32, todo por un hilo dedicado: COM es STA), `discover_alpaca` (UDP 32227), reglas de seguridad |
 | `app.py` | `ThreadingHTTPServer` en 127.0.0.1: API `/api/*`, UI en `zenithstars/web/`, v1 en `/v1/` |
-| `web/index.html` | UI de operador, vanilla JS; `obstech-colors.css` copiado del kit, con acento ámbar (interfaz) y tema oscuro |
+| `web/index.html` | UI de operador, vanilla JS: criterios (pestañas Banda de altitud / Dirección, magnitud, aislamiento), mapa polar SVG del cielo, objetivo y lista; `obstech-colors.css` copiado del kit, con acento ámbar (interfaz) y tema oscuro |
+
+`/api/candidates?mode=band&alt_min&alt_pref&alt_max&az_mode=mount|fixed|any[&az]`
+ordena por distancia a (alt_pref, az de referencia) o, sin azimut, por
+|alt − alt_pref|. `mode=direction` (default, compatible con 2.0) usa `alt`, `az`, `radius`.
 
 Correr: `python3 -m zenithstars [--port 8001] [--min-alt 30] [--no-browser]`.
 
@@ -49,12 +53,24 @@ Correr: `python3 -m zenithstars [--port 8001] [--min-alt 30] [--no-browser]`.
 - **Rechazos en `Mount.slew`**: AtPark, Slewing (un park en curso u otro
   programa), altura < `--min-alt`. Medido 2026-11-04: sin el chequeo de
   `Slewing`, un slew mandado durante un park lo interrumpía.
+- **Trackear al llegar**: después de cada slew un hilo (`Mount._watch_arrival`)
+  espera `Slewing=false` y, si el driver apagó el tracking, lo enciende; el
+  resultado va en `status.mount.arrival`. Un abort (o un slew nuevo) invalida
+  al vigilante por `_slew_seq` y no reenciende nada: abortar es detenerse.
 - **No apagar `Connected`** si la montura ya estaba conectada al llegar
   (`we_connected`): otro software del cliente puede estar usándola.
 - **Defensas HTTP**: Host permitido + POST solo `application/json`. Sin esto
   cualquier página web abierta en el PC del cliente podría mandar un slew.
 - **PyInstaller en modo onedir**, no onefile: menos falsos positivos de
-  antivirus en Windows y arranque más rápido.
+  antivirus en Windows y arranque más rápido. `win32timezone` va como
+  hidden import: sin él, leer `UTCDate` por COM falla y no hay chequeo de reloj
+  (visto en el exe 2.0.0 contra PWI4).
+- **Banda de altitud por defecto (70–85°, pref. 80°)**: la montura de OBSTECH
+  es alt-az (PlaneWave, PWI4 `geometry=0`). Cerca del cenit el eje de azimut
+  tiene que girar cada vez más rápido para seguir; la UI avisa sobre 87°.
+  "Cerca de la montura" usa el `Azimuth` actual para que el slew sea corto.
+- **Sin protección solar, a propósito**: Santiago (2026-11-04) confirmó que
+  nunca se usa de día. Las pruebas diurnas se hacen con el techo cerrado.
 
 ## Tests
 
@@ -69,9 +85,15 @@ Simulators), sitio configurado en El Sauce. Escucha en **32323**. Si se lanza co
 desconocidos (p. ej. `--help`) arranca en el 5000 y su hilo de movimiento
 puede quedar colgado con `Slewing=true`; además, en macOS el 5000 es AirPlay.
 
-Sin probar (no hay Windows acá): `ComMount`, el ASCOM Chooser y el build del
-workflow en `windows-latest`. Probar en un PC con ASCOM Platform y el
-simulador COM antes del primer despliegue real.
+Probado 2026-11-04 en el PC del observatorio (Windows 10, ASCOM Platform 7,
+PWI4 4.1.5): `ComMount` con `ASCOM.PWI4.Telescope` (conectar, slew al cenit
+con 0″ de diferencia reportada, abortar; PWI4 apaga el tracking al abortar) y
+el exe 2.0.0 del workflow. Ahí se trabaja con ASCOM COM directo, no con
+OmniSim. Sin probar todavía: el ASCOM Chooser (diálogo de escritorio).
+
+Correr desde el código en Windows: `py -m venv .venv`,
+`.venv\Scripts\python -m pip install pywin32 pyinstaller`,
+`.venv\Scripts\python -m zenithstars`.
 
 ## Git
 

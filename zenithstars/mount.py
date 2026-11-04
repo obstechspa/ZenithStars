@@ -9,7 +9,10 @@ Reglas de seguridad que viven acá y no en la UI:
 - nunca se apaga Connected si la montura ya estaba conectada al llegar: otro
   programa del cliente (NINA, ACP, PWI…) puede estar usándola
 - el tracking se enciende solo como parte de un slew pedido explícitamente,
-  porque ASCOM exige Tracking=True para SlewToCoordinates
+  porque ASCOM exige Tracking=True para SlewToCoordinates, y al llegar se
+  verifica que siga encendido (algunos drivers lo apagan al terminar el
+  movimiento): la estrella tiene que quedar en el campo para colimar. Un
+  abort no lo reenciende: abortar es pedir que la montura se detenga.
 """
 from __future__ import annotations
 
@@ -17,6 +20,7 @@ import json
 import socket
 import sys
 import threading
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -35,10 +39,15 @@ class MountError(RuntimeError):
 class Mount:
     kind = 'base'
 
+    ARRIVAL_POLL_S = 0.5               # cada cuánto mirar Slewing después de un slew
+    ARRIVAL_TIMEOUT_S = 600            # un slew no dura más que esto
+
     def __init__(self):
         self.label = ''
         self.we_connected = False
         self._lock = threading.Lock()
+        self._slew_seq = 0             # cada slew/abort lo incrementa: invalida al vigilante anterior
+        self.arrival = None            # resultado del último slew: {'seq', 'state', 'tracking', 'note'}
 
     # implementadas por cada backend
     def get(self, prop: str): raise NotImplementedError
@@ -61,7 +70,8 @@ class Mount:
         pass
 
     def status(self) -> dict:
-        out = {'kind': self.kind, 'label': self.label, 'we_connected': self.we_connected}
+        out = {'kind': self.kind, 'label': self.label, 'we_connected': self.we_connected,
+               'arrival': self.arrival}
         with self._lock:
             for p in STATUS_PROPS:
                 try:
@@ -89,21 +99,59 @@ class Mount:
                     raise MountError('Tracking apagado y la montura no permite encenderlo por ASCOM.')
                 self.put('Tracking', True)
                 notes.append('tracking encendido')
+            self._slew_seq += 1
+            seq = self._slew_seq
+            self.arrival = {'seq': seq, 'state': 'moving', 'tracking': None, 'note': ''}
             if self.get('CanSlewAsync'):
                 self.call('SlewToCoordinatesAsync', ra_hours, dec_deg)
+                threading.Thread(target=self._watch_arrival, args=(seq,), daemon=True).start()
             else:
-                threading.Thread(target=self._slew_sync, args=(ra_hours, dec_deg),
+                threading.Thread(target=self._slew_sync, args=(ra_hours, dec_deg, seq),
                                  daemon=True).start()
                 notes.append('slew síncrono en segundo plano (la montura no tiene CanSlewAsync)')
         return notes
 
-    def _slew_sync(self, ra_hours, dec_deg):
+    def _slew_sync(self, ra_hours, dec_deg, seq):
         try:
             self.call('SlewToCoordinates', ra_hours, dec_deg)
         except Exception as e:
             print(f'[zenithstars] slew síncrono falló: {e}', file=sys.stderr)
+            if seq == self._slew_seq:
+                self.arrival = {'seq': seq, 'state': 'failed', 'tracking': None, 'note': str(e)}
+            return
+        self._watch_arrival(seq)
+
+    def _watch_arrival(self, seq):
+        """Espera a que termine el slew y deja el tracking encendido."""
+        deadline = time.monotonic() + self.ARRIVAL_TIMEOUT_S
+        try:
+            while seq == self._slew_seq:
+                with self._lock:
+                    slewing = self.get('Slewing')
+                if not slewing:
+                    break
+                if time.monotonic() > deadline:
+                    self.arrival = {'seq': seq, 'state': 'timeout', 'tracking': None,
+                                    'note': f'la montura sigue moviéndose después de {self.ARRIVAL_TIMEOUT_S} s'}
+                    return
+                time.sleep(self.ARRIVAL_POLL_S)
+            with self._lock:
+                if seq != self._slew_seq:          # abortado u otro slew: no tocar el tracking
+                    return
+                note = ''
+                if not self.get('Tracking'):
+                    self.put('Tracking', True)
+                    note = 'el driver apagó el tracking al llegar; se volvió a encender'
+                tracking = bool(self.get('Tracking'))
+            self.arrival = {'seq': seq, 'state': 'arrived', 'tracking': tracking, 'note': note}
+        except Exception as e:                     # p. ej. la montura dejó de responder
+            if seq == self._slew_seq:
+                self.arrival = {'seq': seq, 'state': 'failed', 'tracking': None,
+                                'note': f'no se pudo verificar el tracking al llegar: {e}'}
 
     def abort(self):
+        self._slew_seq += 1                      # el vigilante del slew en curso no reenciende el tracking
+        self.arrival = {'seq': self._slew_seq, 'state': 'aborted', 'tracking': None, 'note': ''}
         self.call('AbortSlew')                   # sin lock: tiene que pasar aunque otro pedido esté en curso
 
 

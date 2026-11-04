@@ -57,6 +57,36 @@
   tr.low { opacity: .45; }
   .tablewrap { max-height: 55vh; overflow: auto; }
   .hidden { display: none !important; }
+  .tabs { display: grid; grid-template-columns: 1fr 1fr; margin-bottom: .8rem; border: 1px solid var(--obs-rule); border-radius: 6px; overflow: hidden; }
+  .tabs button { border: 0; border-radius: 0; padding: .45rem .3rem; color: var(--obs-mute); }
+  .tabs button[aria-selected="true"] { background: color-mix(in srgb, var(--obs-accent) 22%, transparent); color: var(--obs-text); font-weight: 600; }
+  .sub { font-size: .72rem; letter-spacing: .06em; text-transform: uppercase; color: var(--obs-mute); margin: .7rem 0 .4rem;
+         padding-top: .6rem; border-top: 1px solid color-mix(in srgb, var(--obs-rule) 50%, transparent); }
+  #crit-band .sub:first-child { margin-top: 0; border-top: 0; padding-top: 0; }
+  .hint { font-size: .78rem; min-height: 1em; margin: -.2rem 0 .2rem; }
+  input:invalid, input.bad-input { border-color: var(--obs-bad); }
+  .toprow { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 1rem; align-items: start; }
+  @media (max-width: 1100px) { .toprow { grid-template-columns: 1fr; } }
+  #sky { width: 100%; max-width: 300px; display: block; margin: 0 auto; }
+  #sky .ring { fill: none; stroke: var(--obs-rule); stroke-width: .5; }
+  #sky .horizon { fill: color-mix(in srgb, var(--obs-bg) 60%, var(--obs-panel)); stroke: var(--obs-rule); stroke-width: .8; }
+  #sky .band { fill: color-mix(in srgb, var(--obs-accent) 18%, transparent); fill-rule: evenodd; }
+  #sky .pref { fill: none; stroke: var(--obs-accent); stroke-width: .6; stroke-dasharray: 2 2; }
+  #sky .limit { fill: none; stroke: var(--obs-bad); stroke-width: .8; stroke-dasharray: 3 2; }
+  #sky .lbl { fill: var(--obs-mute); font-size: 8px; text-anchor: middle; dominant-baseline: middle; }
+  #sky .alt-lbl { fill: var(--obs-mute); font-size: 6px; }
+  #sky .st { fill: var(--obs-text); cursor: pointer; }
+  #sky .st.crowded { fill: var(--obs-warn); }
+  #sky .st.low { opacity: .35; }
+  #sky .selring { fill: none; stroke: var(--obs-accent); stroke-width: 1.4; }
+  #sky .mount { stroke: var(--obs-good); stroke-width: 1.2; fill: none; }
+  .legend { display: flex; flex-wrap: wrap; gap: .3rem .8rem; justify-content: center; font-size: .72rem; color: var(--obs-mute); margin-top: .4rem; }
+  .lg { display: inline-block; width: 10px; height: 10px; margin-right: .3rem; vertical-align: -1px; border-radius: 50%; }
+  .lg.band { background: color-mix(in srgb, var(--obs-accent) 35%, transparent); border-radius: 2px; }
+  .lg.limit { border: 1px dashed var(--obs-bad); }
+  .lg.star { background: var(--obs-text); width: 6px; height: 6px; vertical-align: 1px; }
+  .lg.sel { border: 2px solid var(--obs-accent); }
+  .lg.mount { border: 2px solid var(--obs-good); border-radius: 0; transform: rotate(45deg) scale(.8); }
 </style>
 </head>
 <body>
@@ -110,43 +140,87 @@
   </section>
 
   <section class="card">
-    <h2>Dirección y filtros</h2>
-    <div class="btns presets">
-      <button data-alt="90" data-az="0">Cenit</button>
-      <button data-alt="60" data-az="0">N 60°</button>
-      <button data-alt="60" data-az="90">E 60°</button>
-      <button data-alt="60" data-az="180">S 60°</button>
-      <button data-alt="60" data-az="270">O 60°</button>
+    <h2>Criterios</h2>
+    <div class="tabs" role="tablist">
+      <button id="tab-band" role="tab" data-mode="band" title="Para monturas alt-az: evita el cenit">Banda de altitud</button>
+      <button id="tab-direction" role="tab" data-mode="direction">Dirección</button>
+    </div>
+    <input id="mode" type="hidden" value="band">
+
+    <div id="crit-band">
+      <div class="sub">Altitud</div>
+      <div class="btns presets" id="band-presets">
+        <button data-min="60" data-pref="70" data-max="80">60–80°</button>
+        <button data-min="70" data-pref="80" data-max="85">70–85°</button>
+        <button data-min="75" data-pref="82" data-max="87">75–87°</button>
+      </div>
+      <div class="row row3">
+        <div><label>Mín (°)</label><input id="alt_min" type="number" min="0" max="90" step="1" value="70"></div>
+        <div><label title="Se elige la estrella aislada más cercana a esta altura">Preferida (°)</label><input id="alt_pref" type="number" min="0" max="90" step="1" value="80"></div>
+        <div><label>Máx (°)</label><input id="alt_max" type="number" min="0" max="90" step="1" value="85"></div>
+      </div>
+      <div class="row" style="grid-template-columns: 1fr 90px">
+        <div><label>Azimut</label>
+          <select id="az_mode">
+            <option value="mount" title="Elige hacia donde ya apunta la montura: slew corto">Cerca de la montura</option>
+            <option value="fixed">Azimut fijo</option>
+            <option value="any">Cualquiera</option>
+          </select></div>
+        <div><label>AZ (°)</label><input id="band_az" type="number" min="0" max="360" value="0"></div>
+      </div>
+      <div class="hint" id="band-hint"></div>
+    </div>
+
+    <div id="crit-direction" class="hidden">
+      <div class="btns presets" id="dir-presets">
+        <button data-alt="90" data-az="0">Cenit</button>
+        <button data-alt="60" data-az="0">N 60°</button>
+        <button data-alt="60" data-az="90">E 60°</button>
+        <button data-alt="60" data-az="180">S 60°</button>
+        <button data-alt="60" data-az="270">O 60°</button>
+      </div>
+      <div class="row row3">
+        <div><label>ALT (°)</label><input id="alt" type="number" min="0" max="90" value="90"></div>
+        <div><label>AZ (°, N→E)</label><input id="az" type="number" min="0" max="360" value="0"></div>
+        <div><label>Radio (°)</label><input id="radius" type="number" min="0.1" max="90" value="15"></div>
+      </div>
+    </div>
+
+    <div class="sub">Magnitud V</div>
+    <div class="btns presets" id="mag-presets">
+      <button data-lo="5" data-hi="7">5–7</button>
+      <button data-lo="6" data-hi="8">6–8</button>
+      <button data-lo="7" data-hi="9">7–9</button>
+      <button data-lo="5" data-hi="9">5–9</button>
     </div>
     <div class="row">
-      <div><label>ALT (°)</label><input id="alt" type="number" min="0" max="90" value="90"></div>
-      <div><label>AZ (°, N→E)</label><input id="az" type="number" min="0" max="360" value="0"></div>
+      <div><label>V mín (más brillante)</label><input id="mag_min" type="number" min="0" max="9" step="0.1" value="5"></div>
+      <div><label>V máx (más débil)</label><input id="mag_max" type="number" min="0" max="9" step="0.1" value="9"></div>
     </div>
-    <div class="row row3">
-      <div><label>Radio (°)</label><input id="radius" type="number" min="0.1" max="90" value="15"></div>
-      <div><label>V mín</label><input id="mag_min" type="number" step="0.1" value="5"></div>
-      <div><label>V máx</label><input id="mag_max" type="number" step="0.1" value="9"></div>
-    </div>
+
+    <div class="sub">Aislamiento</div>
     <div class="row">
-      <div><label title="Sin otra estrella más brillante que V+ΔV dentro de este radio">Aislamiento (′)</label><input id="iso_arcmin" type="number" min="0" max="59" step="0.5" value="3"></div>
+      <div><label title="Sin otra estrella más brillante que V+ΔV dentro de este radio">Radio (′)</label><input id="iso_arcmin" type="number" min="0" max="59" step="0.5" value="3"></div>
       <div><label>ΔV vecina</label><input id="iso_dmag" type="number" min="0" max="10" step="0.5" value="2"></div>
     </div>
     <button id="btn-search" class="primary wide">Buscar estrella</button>
+    <div class="msg" id="crit-msg"></div>
   </section>
 
 </div>
 <div class="col">
 
+  <div class="toprow">
   <section class="card" id="card-target">
     <h2>Objetivo</h2>
-    <div id="target-empty" class="mute">Busca una dirección: se elige sola la estrella aislada más cercana.</div>
+    <div id="target-empty" class="mute">Define los criterios y presiona Buscar: se elige sola la estrella aislada que mejor los cumple.</div>
     <div id="target" class="hidden">
       <div class="target-name" id="t-name"></div>
       <div class="target-ids" id="t-ids"></div>
       <dl class="kv">
         <dt>V</dt><dd id="t-v"></dd>
         <dt>Alt / Az ahora</dt><dd id="t-altaz"></dd>
-        <dt>Distancia a la dirección</dt><dd id="t-sep"></dd>
+        <dt id="t-sep-lbl">Distancia a la dirección</dt><dd id="t-sep"></dd>
         <dt>AR / Dec J2000</dt><dd id="t-radec"></dd>
         <dt>Vecinas</dt><dd id="t-iso"></dd>
       </dl>
@@ -158,11 +232,24 @@
     </div>
   </section>
 
+  <section class="card" id="card-sky">
+    <h2>Cielo <span class="mute" style="text-transform:none">· cenit al centro, N arriba, E a la izquierda</span></h2>
+    <svg id="sky" viewBox="-114 -114 228 228" role="img" aria-label="Mapa del cielo con la banda de altitud, las candidatas y la montura"></svg>
+    <div class="legend">
+      <span><i class="lg band"></i>banda</span>
+      <span><i class="lg limit"></i>límite <span id="lg-min">30</span>°</span>
+      <span><i class="lg star"></i>candidata</span>
+      <span><i class="lg sel"></i>objetivo</span>
+      <span><i class="lg mount"></i>montura</span>
+    </div>
+  </section>
+  </div>
+
   <section class="card">
     <h2 id="list-title">Candidatas</h2>
     <div class="tablewrap">
       <table>
-        <thead><tr><th>Estrella</th><th>V</th><th>Alt</th><th>Az</th><th>Dist.</th><th>Vecina</th></tr></thead>
+        <thead><tr><th>Estrella</th><th>V</th><th>Alt</th><th>Az</th><th id="th-dist">Dist.</th><th>Vecina</th></tr></thead>
         <tbody id="rows"></tbody>
       </table>
     </div>
@@ -177,7 +264,11 @@ const store = {
   get(k, d) { try { return JSON.parse(localStorage.getItem('zs2.' + k)) ?? d; } catch { return d; } },
   set(k, v) { try { localStorage.setItem('zs2.' + k, JSON.stringify(v)); } catch {} },
 };
-const FIELDS = ['lat', 'lon', 'alt', 'az', 'radius', 'mag_min', 'mag_max', 'iso_arcmin', 'iso_dmag'];
+const FIELDS = ['lat', 'lon', 'mode', 'alt_min', 'alt_pref', 'alt_max', 'az_mode', 'band_az',
+                'alt', 'az', 'radius', 'mag_min', 'mag_max', 'iso_arcmin', 'iso_dmag'];
+const QUERY = { band: ['lat', 'lon', 'mode', 'alt_min', 'alt_pref', 'alt_max', 'az_mode', 'mag_min', 'mag_max', 'iso_arcmin', 'iso_dmag'],
+                direction: ['lat', 'lon', 'mode', 'alt', 'az', 'radius', 'mag_min', 'mag_max', 'iso_arcmin', 'iso_dmag'] };
+const KEYHOLE = 87;     // sobre esta altura una montura alt-az tiene que girar el azimut muy rápido
 
 let status = null, result = null, selected = null, lastSlew = null;
 
@@ -206,7 +297,7 @@ async function refreshStatus() {
   $('mount-on').classList.toggle('hidden', !m);
   $('card-site').classList.toggle('hidden', !!m);
   const pill = $('hdr-mount');
-  if (!m) { pill.textContent = 'sin montura'; pill.className = 'pill mute'; updateSlewButtons(); return; }
+  if (!m) { pill.textContent = 'sin montura'; pill.className = 'pill mute'; updateSlewButtons(); renderSky(); return; }
 
   $('m-name').textContent = m.Name || '(sin nombre)';
   $('m-label').textContent = m.label;
@@ -221,13 +312,22 @@ async function refreshStatus() {
   $('m-clock').innerHTML = off == null ? '—' : Math.abs(off) > 5
     ? `<span class="warn">montura ${off > 0 ? '+' : ''}${off} s respecto a este PC</span>` : `ok (${off} s)`;
   pill.textContent = st[0]; pill.className = 'pill ' + st[1];
+  renderSky();
 
-  if (lastSlew && !m.Slewing && !lastSlew.done) {
+  // el servidor vigila la llegada y deja el tracking encendido (m.arrival)
+  const arr = m.arrival;
+  if (lastSlew && !lastSlew.done && arr && arr.seq === lastSlew.seq && arr.state !== 'moving') {
     lastSlew.done = true;
-    const dra = (m.RightAscension - lastSlew.ra_hours) * 15 * Math.cos(lastSlew.dec * Math.PI / 180);
-    const ddec = m.Declination - lastSlew.dec;
-    const err = Math.hypot(((dra + 180) % 360 + 360) % 360 - 180, ddec) * 3600;
-    say('slew-msg', `En posición. Diferencia reportada por la montura: ${err.toFixed(0)}″.`, err > 600 ? 'warn' : 'good');
+    if (arr.state === 'arrived') {
+      const dra = (m.RightAscension - lastSlew.ra_hours) * 15 * Math.cos(lastSlew.dec * Math.PI / 180);
+      const ddec = m.Declination - lastSlew.dec;
+      const err = Math.hypot(((dra + 180) % 360 + 360) % 360 - 180, ddec) * 3600;
+      const trk = arr.tracking ? 'trackeando la estrella' : 'sin tracking: encenderlo desde el software de la montura';
+      say('slew-msg', `En posición, ${trk}. Diferencia reportada por la montura: ${err.toFixed(0)}″.` +
+          (arr.note ? ` (${arr.note})` : ''), err > 600 || !arr.tracking ? 'warn' : 'good');
+    } else if (arr.state !== 'aborted') {
+      say('slew-msg', `No se pudo confirmar la llegada: ${arr.note}`, 'bad');
+    }
   }
   updateSlewButtons();
 }
@@ -274,21 +374,137 @@ $('btn-discover').onclick = async () => {
 })();
 
 // ─── búsqueda ───────────────────────────────────────────────────────────────
+const mode = () => $('mode').value;
+
+/** Revisa los criterios antes de preguntar al servidor; devuelve el error o ''. */
+function checkCriteria() {
+  for (const id of ['alt_min', 'alt_pref', 'alt_max', 'mag_min', 'mag_max']) $(id).classList.remove('bad-input');
+  const v = id => parseFloat($(id).value);
+  const bad = (ids, msg) => { ids.forEach(i => $(i).classList.add('bad-input')); return msg; };
+  if (!(v('mag_min') <= v('mag_max'))) return bad(['mag_min', 'mag_max'], 'V mín tiene que ser menor o igual que V máx.');
+  if (mode() !== 'band') return '';
+  const [lo, pref, hi] = [v('alt_min'), v('alt_pref'), v('alt_max')];
+  if (![lo, pref, hi].every(x => x >= 0 && x <= 90)) return bad(['alt_min', 'alt_pref', 'alt_max'], 'Las alturas van entre 0° y 90°.');
+  if (lo > hi) return bad(['alt_min', 'alt_max'], 'La altura mínima es mayor que la máxima.');
+  if (pref < lo || pref > hi) return bad(['alt_pref'], `La altura preferida tiene que estar entre ${lo}° y ${hi}°.`);
+  return '';
+}
+
+function bandHint() {
+  const h = $('band-hint'), lim = status?.min_alt ?? 30;
+  const lo = +$('alt_min').value, hi = +$('alt_max').value;
+  $('band_az').disabled = $('az_mode').value !== 'fixed';
+  if (hi > KEYHOLE) { h.textContent = `Sobre ${KEYHOLE}° una montura alt-az gira muy rápido en azimut (zona del cenit).`; h.className = 'hint warn'; }
+  else if (lo < lim) { h.textContent = `Lo que quede bajo ${lim}° no se puede apuntar (límite --min-alt).`; h.className = 'hint warn'; }
+  else if ($('az_mode').value === 'mount' && !status?.mount) { h.textContent = 'Sin montura conectada se ordena solo por altura.'; h.className = 'hint mute'; }
+  else { h.textContent = ''; h.className = 'hint'; }
+}
+
+function setMode(m) {
+  $('mode').value = m;
+  for (const b of document.querySelectorAll('.tabs button')) b.setAttribute('aria-selected', b.dataset.mode === m);
+  $('crit-band').classList.toggle('hidden', m !== 'band');
+  $('crit-direction').classList.toggle('hidden', m !== 'direction');
+  $('th-dist').textContent = m === 'band' ? 'Δ pref.' : 'Dist.';
+  $('th-dist').title = m === 'band' ? 'Distancia a la altura preferida (y al azimut de referencia, si hay)' : 'Distancia a la dirección pedida';
+}
+
+function emptyTarget(text, cls = 'mute') { $('target-empty').textContent = text; $('target-empty').className = cls; }
+
 async function search(keepSelection = false) {
+  const err = checkCriteria();
+  say('crit-msg', err, 'bad');
+  if (err) return;
   const q = new URLSearchParams();
-  for (const k of FIELDS) q.set(k, $(k).value);
+  for (const k of QUERY[mode()]) q.set(k, $(k).value);
+  if (mode() === 'band' && $('az_mode').value === 'fixed') q.set('az', $('band_az').value);
   store.set('fields', Object.fromEntries(FIELDS.map(k => [k, $(k).value])));
   try { result = await api('/api/candidates?' + q); }
-  catch (e) { $('rows').innerHTML = '<tr><td colspan="6" class="bad"></td></tr>'; $('rows').querySelector('td').textContent = e.message; return; }
+  catch (e) { say('crit-msg', e.message, 'bad'); $('rows').innerHTML = '<tr><td colspan="6" class="bad"></td></tr>'; $('rows').querySelector('td').textContent = e.message; return; }
   if (result.site_source === 'montura') $('site-src').textContent = '(de la montura)';
   const keep = keepSelection && selected && result.stars.find(s => s.index === selected.index);
   selected = keep || (result.best != null ? result.stars[result.best] : null);
-  const a = +$('alt').value;
-  $('list-title').textContent = `Candidatas — ${result.stars.length} de ${result.n_in_radius} en ${$('radius').value}° de ` +
-    (a >= 89.5 ? 'cenit' : `ALT ${a}° / AZ ${$('az').value}°`) + ` · ${result.lat.toFixed(3)}, ${result.lon.toFixed(3)} (${result.site_source})`;
-  renderRows(); renderTarget();
-  if (!selected && result.stars.length) say('slew-msg', 'Ninguna candidata aislada sobre el límite de altura; elige una de la lista.', 'warn');
+
+  const where = result.mode === 'band'
+    ? `con altura ${result.alt_min}–${result.alt_max}° (pref. ${result.alt_pref}°` +
+      (result.az_ref == null ? ')' : `, Az ${result.az_ref.toFixed(0)}°${result.az_mode === 'mount' ? ' de la montura' : ''})`)
+    : `en ${$('radius').value}° de ` + (+$('alt').value >= 89.5 ? 'cenit' : `ALT ${$('alt').value}° / AZ ${$('az').value}°`);
+  $('list-title').textContent = `Candidatas — ${result.stars.length} de ${result.n_in_radius} ${where} · V ${$('mag_min').value}–${$('mag_max').value}` +
+    ` · ${result.lat.toFixed(3)}, ${result.lon.toFixed(3)} (${result.site_source})`;
+
+  if (!selected) {
+    const above = result.stars.filter(s => s.above_limit);
+    emptyTarget(!result.stars.length ? 'Ninguna estrella cumple los criterios: amplía la banda de altitud o el rango de magnitud.'
+      : !above.length ? `Todas las candidatas están bajo el límite de ${result.min_alt}° de altura; sube la banda.`
+      : 'Ninguna candidata aislada; elige una de la lista o relaja el aislamiento.', 'warn');
+  }
+  renderRows(); renderTarget(); renderSky();
 }
+
+// ─── mapa del cielo (polar: cenit al centro, borde en MAP_EDGE de altura) ───
+// Bajo 30° no se apunta igual, así que el borde no es el horizonte: la banda
+// útil (60–90°) ocupa casi la mitad del radio en vez de un tercio.
+const SVGNS = 'http://www.w3.org/2000/svg';
+const MAP_EDGE = 20;
+const rOf = alt => (90 - Math.max(alt, MAP_EDGE)) / (90 - MAP_EDGE) * 100;
+const xy = (alt, az) => { const r = rOf(alt), a = az * Math.PI / 180; return [-r * Math.sin(a), -r * Math.cos(a)]; };  // E a la izquierda
+function el(tag, attrs, parent) {
+  const e = document.createElementNS(SVGNS, tag);
+  for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
+  if (parent) parent.appendChild(e);
+  return e;
+}
+
+function renderSky() {
+  const svg = $('sky'); svg.innerHTML = '';
+  const lim = status?.min_alt ?? 30;
+  $('lg-min').textContent = lim;
+  el('circle', { cx: 0, cy: 0, r: 100, class: 'horizon' }, svg);
+  if (mode() === 'band') {
+    const lo = +$('alt_min').value, hi = +$('alt_max').value, pref = +$('alt_pref').value;
+    if (lo <= hi) {
+      const R = rOf(lo), r = rOf(hi);
+      el('path', { class: 'band', d: `M ${R} 0 A ${R} ${R} 0 1 0 ${-R} 0 A ${R} ${R} 0 1 0 ${R} 0 Z` +
+                                   (r > 0 ? ` M ${r} 0 A ${r} ${r} 0 1 1 ${-r} 0 A ${r} ${r} 0 1 1 ${r} 0 Z` : '') }, svg);
+      el('circle', { cx: 0, cy: 0, r: rOf(pref), class: 'pref' }, svg);
+    }
+  } else if (result?.mode === 'direction') {
+    const [x, y] = xy(+$('alt').value, +$('az').value);
+    el('circle', { cx: x, cy: y, r: +$('radius').value / (90 - MAP_EDGE) * 100, class: 'band' }, svg);
+  }
+  for (const a of [45, 60, 75]) el('circle', { cx: 0, cy: 0, r: rOf(a), class: 'ring' }, svg);
+  el('line', { x1: -100, y1: 0, x2: 100, y2: 0, class: 'ring' }, svg);
+  el('line', { x1: 0, y1: -100, x2: 0, y2: 100, class: 'ring' }, svg);
+  el('circle', { cx: 0, cy: 0, r: rOf(lim), class: 'limit' }, svg);
+  for (const [t, az] of [['N', 0], ['E', 90], ['S', 180], ['O', 270]]) {
+    const a = az * Math.PI / 180;
+    el('text', { x: -106 * Math.sin(a), y: -106 * Math.cos(a), class: 'lbl' }, svg).textContent = t;
+  }
+  for (const a of [lim, 45, 60, 75]) { const t = el('text', { x: 1.5, y: -rOf(a) - 1.5, class: 'alt-lbl' }, svg); t.textContent = a + '°'; }
+
+  if (result) {
+    const vmax = Math.max(...result.stars.map(s => s.vmag), 9);
+    for (const s of [...result.stars].reverse()) {
+      if (s.alt < MAP_EDGE) continue;
+      const [x, y] = xy(s.alt, s.az);
+      const c = el('circle', { cx: x, cy: y, r: Math.max(.8, 1 + (vmax - s.vmag) * .55),
+                               class: 'st' + (s.isolated ? '' : ' crowded') + (s.above_limit ? '' : ' low') }, svg);
+      el('title', {}, c).textContent = `${s.name}  V ${s.vmag.toFixed(2)}  alt ${s.alt.toFixed(1)}°  az ${s.az.toFixed(1)}°`;
+      c.onclick = () => pick(s);
+    }
+    if (selected) { const [x, y] = xy(selected.alt, selected.az); el('circle', { cx: x, cy: y, r: 4.5, class: 'selring' }, svg); }
+  }
+  const m = status?.mount;
+  if (m && m.Altitude != null && m.Azimuth != null && m.Altitude > -5) {
+    const [x, y] = xy(Math.max(0, m.Altitude), m.Azimuth), d = 4;
+    const g = el('g', { class: 'mount' }, svg);
+    el('path', { d: `M ${x - d} ${y} L ${x + d} ${y} M ${x} ${y - d} L ${x} ${y + d}` }, g);
+    el('rect', { x: x - 2.5, y: y - 2.5, width: 5, height: 5, transform: `rotate(45 ${x} ${y})` }, g);
+    el('title', {}, g).textContent = `Montura: alt ${m.Altitude.toFixed(1)}°  az ${m.Azimuth.toFixed(1)}°`;
+  }
+}
+
+function pick(s) { selected = s; renderRows(); renderTarget(); renderSky(); say('slew-msg', ''); }
 
 function renderRows() {
   $('rows').innerHTML = '';
@@ -298,7 +514,7 @@ function renderRows() {
     const nb = s.neighbour ? `<span class="warn">V${s.neighbour.vmag} a ${s.neighbour.sep_arcmin}′</span>` : '<span class="mute">—</span>';
     tr.innerHTML = `<td>${s.best ? '★ ' : ''}${s.name}</td><td>${s.vmag.toFixed(2)}</td><td>${s.alt.toFixed(1)}°</td>` +
                    `<td>${s.az.toFixed(1)}°</td><td>${s.sep.toFixed(2)}°</td><td>${nb}</td>`;
-    tr.onclick = () => { selected = s; renderRows(); renderTarget(); say('slew-msg', ''); };
+    tr.onclick = () => pick(s);
     $('rows').appendChild(tr);
   }
 }
@@ -313,7 +529,9 @@ function renderTarget() {
   $('t-v').textContent = s.vmag.toFixed(2);
   $('t-altaz').innerHTML = `${s.alt.toFixed(2)}° / ${s.az.toFixed(2)}°` +
     (s.above_limit ? '' : ` <span class="bad">bajo el límite de ${status?.min_alt ?? '?'}°</span>`);
-  $('t-sep').textContent = s.sep.toFixed(2) + '°';
+  $('t-sep-lbl').textContent = result?.mode === 'band' ? 'Distancia a la preferida' : 'Distancia a la dirección';
+  $('t-sep').innerHTML = s.sep.toFixed(2) + '°' +
+    (s.alt > KEYHOLE ? ` <span class="warn">· a ${s.alt.toFixed(1)}°, zona del cenit</span>` : '');
   $('t-radec').textContent = `${hms(s.ra2000)}  ${dms(s.dec2000)}`;
   $('t-iso').innerHTML = s.neighbour
     ? `<span class="warn">V ${s.neighbour.vmag} a ${s.neighbour.sep_arcmin}′</span>`
@@ -346,15 +564,27 @@ $('btn-abort').onclick = async () => {
 };
 
 // ─── controles ──────────────────────────────────────────────────────────────
-for (const b of document.querySelectorAll('.presets button'))
+for (const b of document.querySelectorAll('#dir-presets button'))
   b.onclick = () => { $('alt').value = b.dataset.alt; $('az').value = b.dataset.az; search(); };
+for (const b of document.querySelectorAll('#band-presets button'))
+  b.onclick = () => { $('alt_min').value = b.dataset.min; $('alt_pref').value = b.dataset.pref; $('alt_max').value = b.dataset.max; bandHint(); search(); };
+for (const b of document.querySelectorAll('#mag-presets button'))
+  b.onclick = () => { $('mag_min').value = b.dataset.lo; $('mag_max').value = b.dataset.hi; search(); };
+for (const b of document.querySelectorAll('.tabs button'))
+  b.onclick = () => { setMode(b.dataset.mode); bandHint(); result = null; selected = null; renderTarget(); renderSky(); search(); };
+for (const id of ['alt_min', 'alt_pref', 'alt_max', 'az_mode', 'band_az'])
+  $(id).addEventListener('input', () => { bandHint(); checkCriteria(); renderSky(); });
+$('az_mode').addEventListener('change', () => { bandHint(); search(); });
+for (const id of FIELDS) $(id)?.addEventListener('keydown', e => { if (e.key === 'Enter') search(); });
 $('btn-search').onclick = () => search();
 $('btn-gps').onclick = () => navigator.geolocation?.getCurrentPosition(
   p => { $('lat').value = p.coords.latitude.toFixed(4); $('lon').value = p.coords.longitude.toFixed(4); },
   () => alert('No se pudo obtener la ubicación del navegador.'));
 
 for (const [k, v] of Object.entries(store.get('fields', {}))) if ($(k)) $(k).value = v;
-refreshStatus();
+setMode(mode() === 'direction' ? 'direction' : 'band');
+bandHint(); renderSky();
+refreshStatus().then(bandHint);
 setInterval(refreshStatus, 2000);
 setInterval(() => { if (result) search(true); }, 60000);
 </script>

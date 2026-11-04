@@ -1,15 +1,27 @@
-ZenithStars v2 — buscar estrella de colimación y apuntar el telescopio por ASCOM
+ZenithStars v2.1 — buscar estrella de colimación y apuntar el telescopio por ASCOM
 
-1. Ejecutar ZenithStars.exe (o ./ZenithStars en macOS/Linux). Se abre el
+1. Descomprimir en una carpeta de ruta corta (p. ej. C:\ZenithStars): desde
+   carpetas muy anidadas Windows no carga el programa ("filename too long").
+   Ejecutar ZenithStars.exe (o ./ZenithStars en macOS/Linux). Se abre el
    navegador en http://localhost:8001 y queda una consola abierta: cerrarla
    detiene ZenithStars.
 2. Telescopio:
    - "Elegir driver ASCOM…" abre el ASCOM Chooser (Windows, driver COM), o
    - "Buscar Alpaca en la red" lista los servidores Alpaca, o
    - escribir la URL Alpaca a mano (p. ej. http://127.0.0.1:11111).
-3. Elegir la dirección (Cenit por defecto) y "Buscar estrella": se marca con ★
-   la estrella aislada más cercana. "Apuntar telescopio" pide confirmación y
-   mueve la montura. "Abortar" detiene el movimiento.
+3. Criterios y "Buscar estrella" (se marca con ★ la estrella elegida):
+   - "Banda de altitud" (por defecto, para monturas alt-az): altura mínima,
+     preferida y máxima (70–85°, preferida 80°). Se elige la estrella aislada
+     más cercana a la altura preferida y, con "Cerca de la montura", hacia
+     donde ya apunta el telescopio, para que el movimiento sea corto. Evita
+     el cenit: sobre ~87° una montura alt-az tiene que girar muy rápido.
+   - "Dirección": la estrella aislada más cercana a un punto ALT/AZ (Cenit,
+     N/E/S/O 60°) dentro de un radio.
+   - Magnitud V mín–máx (botones 5–7, 6–8, 7–9, 5–9) y aislamiento.
+   El mapa del cielo muestra la banda, el límite de altura, las candidatas
+   (clic para elegir otra) y la posición de la montura.
+   "Apuntar telescopio" pide confirmación y mueve la montura. "Abortar"
+   detiene el movimiento.
 
 Seguridad: ZenithStars no desestaciona la montura, no apunta bajo la altura
 mínima (30° por defecto; cambiar con --min-alt) y no mueve la montura si ya se

@@ -94,6 +94,54 @@ class Catalog:
         return {'lst': lst_deg, 'target_ra': ra_now, 'target_dec': dec_now,
                 'best': best, 'stars': out, 'n_in_radius': len(hits)}
 
+    def band_candidates(self, *, lat: float, lon: float, t: datetime,
+                        alt_min: float, alt_max: float, alt_pref: float,
+                        az_ref: float | None = None,
+                        mag_min: float = 5.0, mag_max: float = 9.0,
+                        min_alt: float = 0.0, iso_arcmin: float = 3.0,
+                        iso_dmag: float = 2.0, limit: int = 300) -> dict:
+        """Estrellas con altura entre alt_min y alt_max, ordenadas por cercanía
+        a la altura preferida; la primera aislada sobre min_alt es 'best'.
+
+        Con az_ref (p. ej. el azimut actual de la montura) se ordena por
+        distancia angular al punto (alt_pref, az_ref): la elegida queda a la
+        altura preferida y con el slew más corto. Sin az_ref, solo por
+        |alt - alt_pref|.
+
+        Pensado para monturas alt-az, que no conviene llevar al cenit: cerca de
+        90° el eje de azimut tiene que girar cada vez más rápido para seguir.
+        """
+        jd = astro.julian_date(t)
+        lst_deg = astro.lst(t, lon)
+        # cenit en J2000: sin(alt) de cada estrella = producto punto con él
+        # (la precesión es una rotación, el producto punto no cambia)
+        zx, zy, zz = astro.unit_vector(*astro.unprecess(lst_deg, lat, jd))
+        s_lo, s_hi = math.sin(alt_min * astro.DEG), math.sin(alt_max * astro.DEG)
+        pmat = astro.precession_matrix(jd)
+
+        hits = []
+        for i, (s, (x, y, z)) in enumerate(zip(self.stars, self.vectors)):
+            if mag_min <= s[2] <= mag_max and s_lo <= x * zx + y * zy + z * zz <= s_hi:
+                ra_d, dec_d = astro.from_vector(astro.rotate(pmat, self.vectors[i]))
+                s_alt, s_az = astro.altaz(lst_deg - ra_d, dec_d, lat)
+                if az_ref is None:
+                    score = abs(s_alt - alt_pref)
+                else:   # la separación en el cielo es la misma en (az, alt) que en (ra, dec)
+                    score = astro.separation(az_ref, alt_pref, s_az, s_alt)
+                hits.append((score, i, s_alt, s_az))
+        hits.sort()
+
+        out = []
+        for score, i, s_alt, s_az in hits[:limit]:
+            r = self._describe(i, s_alt, s_az, 1.0, min_alt, iso_arcmin, iso_dmag)
+            r['sep'] = round(score, 3)
+            out.append(r)
+
+        best = next((k for k, r in enumerate(out) if r['isolated'] and r['above_limit']), None)
+        if best is not None:
+            out[best]['best'] = True
+        return {'lst': lst_deg, 'best': best, 'stars': out, 'n_in_radius': len(hits)}
+
     def _describe(self, i, s_alt, s_az, cos_sep, min_alt, iso_arcmin, iso_dmag) -> dict:
         s = self.stars[i]
         near = None

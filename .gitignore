@@ -14,6 +14,8 @@ ZenithStars.xlsx
 __pycache__/
 *.pyc
 
+.venv/
+
 # v2: salidas de PyInstaller
 build/
 dist/

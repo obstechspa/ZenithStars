@@ -51,6 +51,27 @@ class TestApp(unittest.TestCase):
         self.assertEqual(code, 200)
         self.assertEqual(json.loads(body)['site_source'], 'manual')
 
+    def test_band_mode(self):
+        base = '/api/candidates?mode=band&lat=-30.47&lon=-70.76&mag_min=6&mag_max=8'
+        code, body = self.req(base + '&alt_min=70&alt_max=85&alt_pref=80&az_mode=any')
+        self.assertEqual(code, 200)
+        r = json.loads(body)
+        self.assertEqual((r['mode'], r['alt_min'], r['alt_max'], r['az_ref']), ('band', 70, 85, None))
+        self.assertTrue(all(70 <= s['alt'] <= 85 and 6 <= s['vmag'] <= 8 for s in r['stars']))
+        r = json.loads(self.req(base + '&alt_min=70&alt_max=85&alt_pref=80&az_mode=fixed&az=450')[1])
+        self.assertEqual(r['az_ref'], 90)
+        # sin montura, "cerca de la montura" se ordena solo por altura
+        self.assertIsNone(json.loads(self.req(base + '&alt_min=70&alt_max=85&az_mode=mount')[1])['az_ref'])
+        # la preferida se acota a la banda
+        self.assertEqual(json.loads(self.req(base + '&alt_min=70&alt_max=85&alt_pref=89')[1])['alt_pref'], 85)
+
+    def test_band_mode_rejects_bad_criteria(self):
+        base = '/api/candidates?mode=band&lat=-30.47&lon=-70.76'
+        self.assertEqual(self.req(base + '&alt_min=85&alt_max=70')[0], 400)
+        self.assertEqual(self.req(base + '&mag_min=9&mag_max=6')[0], 400)
+        self.assertEqual(self.req(base + '&az_mode=norte')[0], 400)
+        self.assertEqual(self.req('/api/candidates?mode=xx&lat=0&lon=0')[0], 400)
+
     def test_defences(self):
         self.assertEqual(self.req('/api/status', headers={'Host': 'evil.example'})[0], 403)
         self.assertEqual(self.req('/api/slew', b'index=1', ctype='application/x-www-form-urlencoded')[0], 415)

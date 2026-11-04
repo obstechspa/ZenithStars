@@ -175,15 +175,41 @@ def make_handler(state: State, allowed_hosts: set[str]):
     def api_candidates(q):
         lat, lon, src = state.site(q)
         t = astro.utcnow()
-        res = state.catalog.candidates(
-            lat=lat, lon=lon, t=t,
-            alt=_num(q, 'alt', 90, 0, 90), az=_num(q, 'az', 0) % 360,
-            radius=_num(q, 'radius', 15, 0.1, 90),
-            mag_min=_num(q, 'mag_min', 5), mag_max=_num(q, 'mag_max', 9),
-            min_alt=state.min_alt,
-            iso_arcmin=_num(q, 'iso_arcmin', 3, 0, 59),
-            iso_dmag=_num(q, 'iso_dmag', 2, 0, 10))
-        res.update(lat=lat, lon=lon, site_source=src, utc=t.isoformat())
+        mag_min, mag_max = _num(q, 'mag_min', 5), _num(q, 'mag_max', 9)
+        if mag_min > mag_max:
+            raise ApiError(400, f'V mín ({mag_min:g}) es mayor que V máx ({mag_max:g}).')
+        common = dict(lat=lat, lon=lon, t=t, mag_min=mag_min, mag_max=mag_max,
+                      min_alt=state.min_alt,
+                      iso_arcmin=_num(q, 'iso_arcmin', 3, 0, 59),
+                      iso_dmag=_num(q, 'iso_dmag', 2, 0, 10))
+        mode = q.get('mode', 'direction')
+        extra = {'mode': mode}
+        if mode == 'band':
+            alt_min, alt_max = _num(q, 'alt_min', 70, 0, 90), _num(q, 'alt_max', 85, 0, 90)
+            if alt_min > alt_max:
+                raise ApiError(400, f'Altura mín ({alt_min:g}°) es mayor que la máx ({alt_max:g}°).')
+            alt_pref = min(max(_num(q, 'alt_pref', (alt_min + alt_max) / 2, 0, 90), alt_min), alt_max)
+            az_mode = q.get('az_mode', 'mount')
+            az_ref = None
+            if az_mode == 'fixed':
+                az_ref = _num(q, 'az', 0) % 360
+            elif az_mode == 'mount' and state.mount is not None:
+                try:
+                    az_ref = float(state.mount.get('Azimuth')) % 360
+                except (MountError, TypeError, ValueError):
+                    az_ref = None          # sin azimut de la montura: se ordena solo por altura
+            elif az_mode not in ('mount', 'any'):
+                raise ApiError(400, f'az_mode={az_mode!r}: usar "mount", "fixed" o "any".')
+            res = state.catalog.band_candidates(alt_min=alt_min, alt_max=alt_max, alt_pref=alt_pref,
+                                                az_ref=az_ref, **common)
+            extra.update(alt_min=alt_min, alt_max=alt_max, alt_pref=alt_pref, az_ref=az_ref,
+                         az_mode=az_mode)
+        elif mode == 'direction':
+            res = state.catalog.candidates(alt=_num(q, 'alt', 90, 0, 90), az=_num(q, 'az', 0) % 360,
+                                           radius=_num(q, 'radius', 15, 0.1, 90), **common)
+        else:
+            raise ApiError(400, f'mode={mode!r}: usar "band" o "direction".')
+        res.update(lat=lat, lon=lon, site_source=src, utc=t.isoformat(), min_alt=state.min_alt, **extra)
         return res
 
     def api_connect(b):
@@ -235,7 +261,8 @@ def make_handler(state: State, allowed_hosts: set[str]):
         ra_m, dec_m = astro.to_mount_system(s[0], s[1], eq, t)
         notes = m.slew(ra_m / 15.0, dec_m)
         return {'ok': True, 'ra_hours': ra_m / 15.0, 'dec': dec_m, 'alt': alt, 'az': az,
-                'eq_system': astro.EQ_SYSTEMS.get(eq, str(eq)), 'notes': notes}
+                'eq_system': astro.EQ_SYSTEMS.get(eq, str(eq)), 'notes': notes,
+                'seq': (m.arrival or {}).get('seq')}
 
     def api_abort(b):
         if state.mount is None:

@@ -18,7 +18,9 @@ sys.path.insert(0, str(ROOT))
 from zenithstars import __version__  # noqa: E402
 
 DATA = [('catalog_full.json', '.'), ('index.html', '.'), ('zenithstars/web', 'zenithstars/web')]
-HIDDEN = ['win32com.client', 'pythoncom', 'pywintypes'] if sys.platform == 'win32' else []
+# win32timezone: pywin32 lo importa en tiempo de ejecución para convertir fechas
+# COM (UTCDate); PyInstaller no lo detecta y sin él el chequeo de reloj falla.
+HIDDEN = ['win32com.client', 'pythoncom', 'pywintypes', 'win32timezone'] if sys.platform == 'win32' else []
 
 
 def main():

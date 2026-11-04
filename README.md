@@ -7,7 +7,7 @@ Hay dos versiones en el repo, independientes:
 
 | | v1 — clásica | v2 — con telescopio |
 |---|---|---|
-| Qué hace | Lista las estrellas; las coordenadas se copian a mano | Elige sola la estrella aislada más cercana y apunta la montura por ASCOM |
+| Qué hace | Lista las estrellas; las coordenadas se copian a mano | Elige sola la estrella aislada según criterios (banda de altitud o dirección, magnitud, aislamiento) y apunta la montura por ASCOM |
 | Archivos | `index.html`, `server.py` (sin cambios desde v1) | `zenithstars/` |
 | Correr | `python server.py` → http://localhost:8000 | `python -m zenithstars` → http://localhost:8001 |
 | En el PC del cliente | requiere Python | `ZenithStars.exe`, sin instalar nada |
