@@ -33,3 +33,23 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh release create "$GITHUB_REF_NAME" dist/*.zip --title "ZenithStars $GITHUB_REF_NAME" --generate-notes
+      # Descarga sin cuenta para los PCs de clientes: el mismo zip va a un repo
+      # público (solo binarios), también con nombre fijo para que
+      # .../releases/latest/download/ZenithStars-windows-amd64.zip no cambie.
+      # RELEASES_TOKEN: token fine-grained con Contents: read and write solo
+      # sobre obstechspa/ZenithStars-releases (GITHUB_TOKEN no llega a otro repo).
+      - if: startsWith(github.ref, 'refs/tags/')
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
+        run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo "::warning::Falta el secret RELEASES_TOKEN: no se publicó en obstechspa/ZenithStars-releases"
+            exit 0
+          fi
+          mkdir pub
+          cp dist/ZenithStars-*-windows-amd64.zip pub/
+          cp dist/ZenithStars-*-windows-amd64.zip pub/ZenithStars-windows-amd64.zip
+          gh release create "$GITHUB_REF_NAME" pub/*.zip -R obstechspa/ZenithStars-releases \
+            --title "ZenithStars $GITHUB_REF_NAME" \
+            --notes "Descomprimir en una ruta corta (p. ej. C:\\ZenithStars) y ejecutar ZenithStars.exe. Instrucciones en LEEME.txt dentro del zip."

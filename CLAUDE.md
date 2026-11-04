@@ -104,5 +104,12 @@ Correr desde el código en Windows: `py -m venv .venv`,
 - v2 se desarrolla en la rama `v2-ascom`; `main` es la v1.
 - Un tag `v*` pusheado compila y **crea un release**; los pushes a ramas solo
   dejan el .zip como artefacto del run de Actions.
+- El tag también publica el zip en el repo **público**
+  `obstechspa/ZenithStars-releases` (versionado + `ZenithStars-windows-amd64.zip`
+  de nombre fijo para `releases/latest/download/…`), para que los clientes
+  descarguen sin cuenta. Usa el secret `RELEASES_TOKEN` (fine-grained,
+  Contents read/write solo sobre ese repo). El bytecode del exe se puede
+  decompilar: el código de v2 queda recuperable (aceptado 2026-11-04); nunca
+  meter credenciales en el código. v2.1.1 se subió a mano al repo público.
 - `catalog_full.json` pesa 4.6 MB y está versionado; si se regenera, el diff
   será el archivo entero.

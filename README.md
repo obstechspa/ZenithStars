@@ -16,16 +16,25 @@ v2 también sirve la v1 en http://localhost:8001/v1/.
 
 ## v2 en el PC de un cliente
 
-El repo es privado: el cliente no lo clona. Se le copia un `.zip` con el
-ejecutable, que no lleva credenciales ni requiere Python.
+El repo es privado: el cliente no lo clona ni necesita cuenta. Los
+ejecutables se publican también en el repo **público**
+[`obstechspa/ZenithStars-releases`](https://github.com/obstechspa/ZenithStars-releases)
+(solo binarios + README), con un enlace fijo a la última versión:
 
-1. Generar el zip de Windows: crear un tag `vX.Y.Z` (o lanzar el workflow
-   `build` a mano en Actions). GitHub Actions compila en Windows y deja
-   `ZenithStars-X.Y.Z-windows-amd64.zip` en el release del tag.
-2. Descargarlo: `gh release download vX.Y.Z -R obstechspa/ZenithStars`
-   (con la cuenta que tenga acceso a la org).
-3. Copiarlo al PC del cliente, descomprimir y ejecutar `ZenithStars\ZenithStars.exe`.
-   Las instrucciones para el operador vienen en `LEEME.txt` dentro del zip.
+    https://github.com/obstechspa/ZenithStars-releases/releases/latest/download/ZenithStars-windows-amd64.zip
+
+1. Publicar una versión: subir `__version__` en `zenithstars/__init__.py` y
+   pushear un tag `vX.Y.Z`. GitHub Actions compila en Windows, crea el release
+   privado y publica el mismo zip en el repo público (necesita el secret
+   `RELEASES_TOKEN`; sin él el paso se salta con un aviso).
+2. En el PC del cliente: bajar el zip del enlace (navegador o
+   `Invoke-WebRequest`), descomprimir en una ruta corta (`C:\ZenithStars`) y
+   ejecutar `ZenithStars.exe`. Las instrucciones para el operador vienen en
+   `LEEME.txt` dentro del zip.
+
+Ojo: el exe de PyInstaller lleva el bytecode de `zenithstars/`, que se puede
+decompilar. Publicar el zip deja el código de v2 recuperable aunque el repo
+siga privado (decidido así 2026-11-04). No poner nunca credenciales en el código.
 
 Conexión a la montura:
 
