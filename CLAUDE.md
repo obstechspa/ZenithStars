@@ -89,7 +89,11 @@ Probado 2026-11-04 en el PC del observatorio (Windows 10, ASCOM Platform 7,
 PWI4 4.1.5): `ComMount` con `ASCOM.PWI4.Telescope` (conectar, slew al cenit
 con 0″ de diferencia reportada, abortar; PWI4 apaga el tracking al abortar) y
 el exe 2.0.0 del workflow. Ahí se trabaja con ASCOM COM directo, no con
-OmniSim. Sin probar todavía: el ASCOM Chooser (diálogo de escritorio).
+OmniSim. ASCOM Chooser: se abre detrás del navegador (Windows no deja que
+una app en segundo plano tome el foco); `mount._raise_own_window` lo pone
+HWND_TOPMOST. Con ctypes hay que declarar `argtypes`: sin ellos el −1 de
+HWND_TOPMOST llega mal en 64 bits y SetWindowPos falla en silencio. Test:
+`ZS_GUI_TESTS=1 python -m unittest tests.test_chooser_window`.
 
 Correr desde el código en Windows: `py -m venv .venv`,
 `.venv\Scripts\python -m pip install pywin32 pyinstaller`,

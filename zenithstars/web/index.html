@@ -333,7 +333,9 @@ async function refreshStatus() {
 }
 
 async function connect(body) {
-  say('mount-msg', 'Conectando…');
+  say('mount-msg', body.kind === 'com' && !body.progid
+    ? 'Elige el driver en la ventana "ASCOM Telescope Chooser" y presiona OK (si no la ves, búscala en la barra de tareas)…'
+    : 'Conectando…', body.kind === 'com' && !body.progid ? 'warn' : '');
   try {
     const r = await api('/api/connect', body);
     if (body.kind === 'com') body.progid = r.progid;

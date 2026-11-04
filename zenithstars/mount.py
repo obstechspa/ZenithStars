@@ -296,6 +296,62 @@ class ComMount(Mount):
             pythoncom.CoInitialize()
             ch = win32com.client.Dispatch('ASCOM.Utilities.Chooser')
             ch.DeviceType = 'Telescope'
-            return ch.Choose(last) or ''
+            done = threading.Event()
+            threading.Thread(target=_raise_own_window, args=('Chooser', done), daemon=True).start()
+            try:
+                return ch.Choose(last) or ''
+            finally:
+                done.set()
         with ThreadPoolExecutor(1) as ex:
             return ex.submit(pick).result()
+
+
+def _raise_own_window(title_part: str, done: threading.Event, timeout: float = 15.0):
+    """Pone al frente la ventana de este proceso cuyo título contiene title_part.
+
+    El Chooser lo abre este proceso, que corre detrás del navegador, y Windows
+    no deja que una app en segundo plano tome el foco: el diálogo aparecía
+    detrás y parecía que el botón no hacía nada (visto 2026-11-04). HWND_TOPMOST
+    sí funciona entre procesos; el foco se intenta, pero puede no darse.
+    """
+    import ctypes
+    import os
+    from ctypes import wintypes
+    # instancia propia con argtypes: sin ellos, en 64 bits HWND_TOPMOST (-1) se
+    # pasa como int de 32 bits y SetWindowPos falla sin decir nada
+    user32 = ctypes.WinDLL('user32', use_last_error=True)
+    enum_proc = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
+    user32.EnumWindows.argtypes = [enum_proc, wintypes.LPARAM]
+    user32.GetWindowThreadProcessId.argtypes = [wintypes.HWND, ctypes.POINTER(wintypes.DWORD)]
+    user32.IsWindowVisible.argtypes = [wintypes.HWND]
+    user32.GetWindowTextW.argtypes = [wintypes.HWND, wintypes.LPWSTR, ctypes.c_int]
+    user32.ShowWindow.argtypes = [wintypes.HWND, ctypes.c_int]
+    user32.SetWindowPos.argtypes = [wintypes.HWND, wintypes.HWND, ctypes.c_int, ctypes.c_int,
+                                    ctypes.c_int, ctypes.c_int, ctypes.c_uint]
+    user32.SetForegroundWindow.argtypes = [wintypes.HWND]
+    pid, found = os.getpid(), []
+
+    def visit(hwnd, _):
+        owner = wintypes.DWORD()
+        user32.GetWindowThreadProcessId(hwnd, ctypes.byref(owner))
+        if owner.value == pid and user32.IsWindowVisible(hwnd):
+            buf = ctypes.create_unicode_buffer(256)
+            user32.GetWindowTextW(hwnd, buf, 256)
+            if title_part in buf.value:
+                found.append(hwnd)
+                return False
+        return True
+    callback = enum_proc(visit)
+
+    deadline = time.monotonic() + timeout
+    while not done.is_set() and time.monotonic() < deadline:
+        user32.EnumWindows(callback, 0)
+        if found:
+            hwnd = found[0]
+            HWND_TOPMOST, SWP_NOSIZE, SWP_NOMOVE, SWP_SHOWWINDOW, SW_RESTORE = -1, 0x1, 0x2, 0x40, 9
+            user32.ShowWindow(hwnd, SW_RESTORE)
+            user32.SetWindowPos(hwnd, wintypes.HWND(HWND_TOPMOST), 0, 0, 0, 0,
+                                SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW)
+            user32.SetForegroundWindow(hwnd)
+            return
+        time.sleep(0.1)
